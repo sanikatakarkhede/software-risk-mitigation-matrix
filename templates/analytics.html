@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_analytics">Risk Analytics & Trends Intelligence</h1>
+    <p class="page-subtitle">Quantitative assessment metrics, velocity trends, domain vulnerability distributions, and mitigation performance.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-secondary" onclick="window.loadAnalyticsCharts()">
+      <i class="fa-solid fa-arrows-rotate"></i>
+      <span>Refresh Analytics</span>
+    </button>
+    <a href="{{ url_for('export_csv', type='risks') }}" class="btn btn-primary" download>
+      <i class="fa-solid fa-file-export"></i>
+      <span data-i18n="btn_export_csv">Export Analytics Dataset</span>
+    </a>
+  </div>
+</div>
+
+<!-- Top Analytics KPI Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+  <!-- Average Risk Score -->
+  <div class="card" style="padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--primary);">
+    <div>
+      <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">
+        <span data-i18n="lbl_risk_score">Average Risk Score</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_score">Shows how serious a risk is based on its likelihood and impact.</span></span>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-heading); margin-top: 0.2rem; color: var(--text-primary);">
+        <span id="analyticsAvgScoreVal">{{ portfolio.avg_score | default(0) }}</span>
+        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">/ 25</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+        Baseline initial: {{ portfolio.avg_initial_score | default(0) }}
+      </div>
+    </div>
+    <div class="kpi-icon" style="background: var(--primary-light); color: var(--primary); width: 48px; height: 48px; border-radius: var(--radius-md); font-size: 1.25rem;">
+      <i class="fa-solid fa-calculator"></i>
+    </div>
+  </div>
+
+  <!-- Overall Risk Reduction -->
+  <div class="card" style="padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--accent);">
+    <div>
+      <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">
+        <span data-i18n="lbl_overall_reduction">Overall Risk Reduction</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_reduction">Shows how much the risk has decreased after mitigation.</span></span>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-heading); margin-top: 0.2rem; color: var(--accent);">
+        <span id="analyticsReductionVal">{{ portfolio.overall_reduction_pct | default(0) }}</span>%
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+        -{{ portfolio.points_mitigated | default(0) }} points mitigated
+      </div>
+    </div>
+    <div class="kpi-icon" style="background: var(--accent-light); color: var(--accent); width: 48px; height: 48px; border-radius: var(--radius-md); font-size: 1.25rem;">
+      <i class="fa-solid fa-chart-line-down"></i>
+    </div>
+  </div>
+
+  <!-- High/Critical Attention -->
+  <div class="card" style="padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-left: 4px solid var(--risk-critical);">
+    <div>
+      <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">High / Critical Risks</div>
+      <div style="font-size: 1.8rem; font-weight: 800; font-family: var(--font-heading); margin-top: 0.2rem; color: var(--risk-critical);">
+        <span id="analyticsAttentionVal">{{ portfolio.attention_count | default(0) }}</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+        {{ portfolio.critical_count | default(0) }} Critical + {{ portfolio.high_count | default(0) }} High
+      </div>
+    </div>
+    <div class="kpi-icon" style="background: var(--risk-critical-bg); color: var(--risk-critical); width: 48px; height: 48px; border-radius: var(--radius-md); font-size: 1.25rem;">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics Charts Grid 1 -->
+<div class="charts-grid-2">
+  <!-- Chart 1: Risk Level Distribution -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i>
+        <span>Threat Severity Band Distribution</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="analyticsDistributionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart 2: Historical Trajectory -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-arrow-trend-down" style="color: var(--accent);"></i>
+        <span>Portfolio Risk Score Trajectory</span>
+      </div>
+      <span class="badge badge-risk-low"><i class="fa-solid fa-shield-halved"></i> Active Governance</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="analyticsTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics Charts Grid 2 -->
+<div class="charts-grid-2">
+  <!-- Chart 3: Category Risk Distribution -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-simple" style="color: var(--secondary);"></i>
+        <span>Exposure Volume by Software Domain</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="analyticsCategoryChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart 4: Risk Lifecycle Status Distribution -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-pie" style="color: #10b981;"></i>
+        <span>Risk Treatment Lifecycle Status</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="analyticsStatusChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Risk Reduction Leaderboard -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i class="fa-solid fa-trophy" style="color: #f59e0b;"></i>
+      <span>Top Risk Reduction Velocity Leaderboard</span>
+    </div>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">Ranked by % risk score mitigated from initial baseline</span>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Risk ID</th>
+          <th data-i18n="lbl_risk_desc">Threat Description</th>
+          <th data-i18n="lbl_initial_score">Initial Score</th>
+          <th data-i18n="lbl_current_score">Current Score</th>
+          <th data-i18n="lbl_reduction">Reduction %</th>
+          <th>Current Severity</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="reductionLeaderboardBody">
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading reduction leaderboard...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  window.loadAnalyticsCharts = function() {
+    fetch('/api/analytics-data')
+      .then(res => res.json())
+      .then(data => {
+        // Update top KPI cards if live data returned
+        if (data.portfolio) {
+          const avgEl = document.getElementById('analyticsAvgScoreVal');
+          const redEl = document.getElementById('analyticsReductionVal');
+          const attEl = document.getElementById('analyticsAttentionVal');
+          if (avgEl) avgEl.innerText = data.portfolio.avg_score;
+          if (redEl) redEl.innerText = data.portfolio.overall_reduction_pct;
+          if (attEl) attEl.innerText = data.portfolio.attention_count;
+        }
+
+        // 1. Severity Distribution
+        if (data.risk_distribution) {
+          ChartEngine.renderDistribution('analyticsDistributionChart', data.risk_distribution);
+        }
+
+        // 2. Trend Line
+        if (data.history_trend) {
+          ChartEngine.renderTrend('analyticsTrendChart', data.history_trend);
+        }
+
+        // 3. Category Bar Chart
+        if (data.categories) {
+          ChartEngine.renderCategories('analyticsCategoryChart', data.categories);
+        }
+
+        // 4. Lifecycle Status Doughnut
+        if (data.status_distribution) {
+          renderStatusDoughnut('analyticsStatusChart', data.status_distribution);
+        }
+
+        // 5. Reduction Leaderboard Table
+        if (data.reduction_leaderboard) {
+          renderLeaderboard(data.reduction_leaderboard);
+        }
+      });
+  };
+
+  function renderStatusDoughnut(canvasId, statusMap) {
+    ChartEngine.destroy(canvasId);
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    const colors = ChartEngine.getThemeColors();
+    const labels = Object.keys(statusMap);
+    const counts = Object.values(statusMap);
+
+    ChartEngine.instances[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: counts,
+          backgroundColor: ['#f97316', '#3b82f6', '#10b981', '#64748b'],
+          borderColor: colors.tooltipBg,
+          borderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: colors.textColor, padding: 16 }
+          }
+        }
+      }
+    });
+  }
+
+  function renderLeaderboard(list) {
+    const tbody = document.getElementById('reductionLeaderboardBody');
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No data available</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    list.slice(0, 10).forEach(item => {
+      const pct = item.reduction_pct || 0;
+      const level = item.risk_level || 'Low';
+      const levelLower = level.toLowerCase();
+      html += `
+        <tr>
+          <td><a href="/risks/${item.id}" class="risk-id-tag">${item.id}</a></td>
+          <td style="font-weight: 600; color: var(--text-primary);"><a href="/risks/${item.id}">${item.name}</a></td>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: var(--text-muted);">${item.initial_score}</td>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: var(--text-primary);">${item.risk_score}</td>
+          <td style="min-width: 160px;">
+            <div class="progress-container">
+              <div class="progress-header">
+                <span class="badge ${pct > 40 ? 'badge-risk-low' : 'badge-risk-medium'}" style="font-size: 0.72rem;">
+                  <i class="fa-solid fa-arrow-trend-down"></i> ${pct}% Reduced
+                </span>
+              </div>
+              <div class="progress-bar-bg" style="height: 6px; margin-top: 4px;">
+                <div class="progress-bar-fill fill-success" style="width: ${Math.min(100, pct)}%;"></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge badge-risk-${levelLower}">${level}</span>
+          </td>
+          <td>
+            <a href="/risks/${item.id}" class="btn btn-outline btn-sm">Inspect</a>
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    window.loadAnalyticsCharts();
+  });
+</script>
+{% endblock %}
+

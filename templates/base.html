@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title | default('Software Risk Mitigation Matrix') }} | MatrixPro SRM</title>
+  <meta name="description" content="Enterprise Software Risk Mitigation Matrix & Threat Governance Platform. Real-time 5x5 Probability-Impact visualization, mitigation planning, and audit compliance.">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js 4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Theme Preload Script (Anti-Flicker) -->
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('srmm_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } catch (e) {}
+    })();
+  </script>
+
+  <!-- Core App Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">RiskManager</span>
+          <span class="brand-tag">Governance Portal</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Core Navigation</div>
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == '/' or request.path == '/dashboard' %}active{% endif %}" id="navDashboard">
+          <i class="fa-solid fa-table-columns"></i>
+          <span>Dashboard</span>
+          {% if global_stats.critical_count and global_stats.critical_count > 0 %}
+            <span class="nav-badge badge-critical">{{ global_stats.critical_count }} Crit</span>
+          {% endif %}
+        </a>
+        <a href="{{ url_for('assessment_view') }}" class="nav-link {% if request.path == '/assessment' or request.path.startswith('/projects') %}active{% endif %}" id="navProjects">
+          <i class="fa-solid fa-folder"></i>
+          <span>Projects</span>
+        </a>
+
+        <div class="nav-section-title">Risk Modules</div>
+        <a href="{{ url_for('risks_view') }}" class="nav-link {% if request.path == '/risks' %}active{% endif %}" id="navRisks">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Risks Inventory</span>
+          <span class="nav-badge">{{ global_stats.total | default(0) }}</span>
+        </a>
+        <a href="{{ url_for('matrix_view') }}" class="nav-link {% if request.path == '/matrix' %}active{% endif %}" id="navMatrix">
+          <i class="fa-solid fa-table-cells-large"></i>
+          <span>5×5 Risk Matrix</span>
+        </a>
+        <a href="{{ url_for('mitigation_view') }}" class="nav-link {% if request.path == '/mitigation' %}active{% endif %}" id="navMitigation">
+          <i class="fa-solid fa-list-check"></i>
+          <span>RMMM Plans</span>
+        </a>
+        <a href="{{ url_for('monitoring_view') }}" class="nav-link {% if request.path == '/monitoring' %}active{% endif %}" id="navMonitoring">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Risk Monitoring</span>
+        </a>
+
+        <div class="nav-section-title">Analytics & System</div>
+        <a href="{{ url_for('reports_view') }}" class="nav-link {% if request.path == '/reports' %}active{% endif %}" id="navReports">
+          <i class="fa-solid fa-file-lines"></i>
+          <span>Reports Hub</span>
+        </a>
+        <a href="{{ url_for('mapping_view') }}" class="nav-link {% if request.path == '/mapping' %}active{% endif %}" id="navMapping">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span>Risk Mapping</span>
+        </a>
+
+        <div class="nav-section-title">Admin Control</div>
+        <a href="{{ url_for('settings_view') }}" class="nav-link {% if request.path == '/settings' %}active{% endif %}" id="navSettings">
+          <i class="fa-solid fa-users"></i>
+          <span>User Management</span>
+        </a>
+        <a href="{{ url_for('settings_view') }}#categories" class="nav-link" id="navCategories">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Risk Categories</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer User Profile -->
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" style="background-color: var(--primary);">
+            S
+          </div>
+          <div class="user-info" style="overflow: hidden;">
+            <span class="user-name">System Administrator</span>
+            <span class="user-role" style="font-size: 0.72rem; color: #94a3b8;">Admin Portal</span>
+            <div id="sidebarUserPrefs" class="profile-prefs-pill">🇮🇳 India • 🌐 EN • 🌙 Dark</div>
+          </div>
+          <a href="{{ url_for('logout') }}" class="icon-btn" style="width: 32px; height: 32px; margin-left: auto;" title="Sign Out" data-i18n-title="sign_out">
+            <i class="fa-solid fa-arrow-right-from-bracket" style="font-size: 0.85rem;"></i>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <!-- Top Navigation Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation Menu">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="breadcrumbs">
+            <a href="{{ url_for('dashboard') }}"><i class="fa-solid fa-house"></i></a>
+            <i class="fa-solid fa-chevron-right"></i>
+            <span class="breadcrumb-current">{{ page_title | default('Dashboard') }}</span>
+          </div>
+        </div>
+
+        <div class="topbar-center">
+          <div class="search-bar-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="globalSearchInput" class="search-input" placeholder="Search risks, projects, codes..." data-i18n-placeholder="search_placeholder" autocomplete="off">
+            <span class="search-shortcut">Ctrl+K</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Top-Right Quick Settings Dropdown Trigger -->
+          <div style="position: relative;">
+            <button class="icon-btn" id="quickSettingsBtn" title="Preferences (Region, Language, Theme)" aria-label="Quick Settings">
+              <i class="fa-solid fa-sliders"></i>
+            </button>
+
+            <!-- Quick Settings Popover Menu -->
+            <div id="quickSettingsMenu" class="quick-settings-popover">
+              <!-- Region / Country Section -->
+              <div class="qs-section">
+                <div class="qs-header">
+                  <i class="fa-solid fa-earth-asia" style="color: var(--primary);"></i>
+                  <span data-i18n="region_title">Region / User Type</span>
+                </div>
+                <div class="segmented-control">
+                  <button type="button" class="segmented-btn active" data-set-region="indian">
+                    <span>🇮🇳 Indian (₹)</span>
+                  </button>
+                  <button type="button" class="segmented-btn" data-set-region="intl">
+                    <span>🌐 Intl ($)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Language Section -->
+              <div class="qs-section">
+                <div class="qs-header">
+                  <i class="fa-solid fa-language" style="color: var(--accent);"></i>
+                  <span data-i18n="lang_title">Language</span>
+                </div>
+                <div class="segmented-control">
+                  <button type="button" class="segmented-btn active" data-set-lang="en">
+                    <span>English</span>
+                  </button>
+                  <button type="button" class="segmented-btn" data-set-lang="hi">
+                    <span>हिंदी</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Theme Section -->
+              <div class="qs-section">
+                <div class="qs-header">
+                  <i class="fa-solid fa-palette" style="color: var(--secondary);"></i>
+                  <span data-i18n="theme_title">Theme</span>
+                </div>
+                <div class="segmented-control">
+                  <button type="button" class="segmented-btn active" data-set-theme="dark">
+                    <i class="fa-solid fa-moon"></i> <span>Dark</span>
+                  </button>
+                  <button type="button" class="segmented-btn" data-set-theme="light">
+                    <i class="fa-solid fa-sun"></i> <span>Light</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Direct Light/Dark Theme Switcher Button -->
+          <button type="button" class="theme-mode-btn" id="themeToggleBtn" title="Switch Theme (Light / Dark)" aria-label="Toggle Theme">
+            <i class="fa-solid fa-sun" id="topbarThemeIcon" style="color: #f59e0b;"></i>
+            <span id="topbarThemeLabel">Light Mode</span>
+          </button>
+
+          <!-- Notifications Button & Flyout -->
+          <div style="position: relative; flex-shrink: 0;">
+            <button class="icon-btn" id="notifBtn" onclick="document.getElementById('notifMenu').classList.toggle('active')" title="System Notifications" data-i18n-title="notifications">
+              <i class="fa-solid fa-bell"></i>
+              <span class="badge-dot"></span>
+            </button>
+            <div id="notifMenu" class="modal-window" style="position: absolute; right: 0; top: 48px; width: 340px; display: none; z-index: 200; box-shadow: var(--shadow-lg); border-radius: var(--radius-lg); background: var(--bg-surface-elevated);">
+              <div class="modal-header" style="padding: 0.85rem 1rem;">
+                <span class="modal-title" style="font-size: 0.95rem;"><i class="fa-solid fa-bell"></i> <span data-i18n="notifications">Notifications</span></span>
+                <span class="badge badge-risk-low" style="font-size: 0.7rem;">2 New</span>
+              </div>
+              <div class="modal-body" style="padding: 0.75rem 1rem; max-height: 280px; overflow-y: auto;">
+                <div class="notif-item" style="padding: 0.65rem 0; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: flex-start; gap: 0.6rem;">
+                  <i class="fa-solid fa-triangle-exclamation text-danger" style="margin-top: 3px; font-size: 0.85rem; color: var(--risk-critical);"></i>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary);">Critical Risk Identified</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Database Transaction Loss is currently unmitigated.</div>
+                  </div>
+                </div>
+                <div class="notif-item" style="padding: 0.65rem 0; display: flex; align-items: flex-start; gap: 0.6rem;">
+                  <i class="fa-solid fa-circle-check text-success" style="margin-top: 3px; font-size: 0.85rem; color: var(--risk-low);"></i>
+                  <div style="flex: 1;">
+                    <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary);">Mitigation Completed</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">TLS 1.3 enforcement reduced score from 20 to 4.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Topbar User Profile Chip & Dropdown -->
+          <div style="position: relative; flex-shrink: 0;">
+            <div class="user-chip-dropdown" id="topbarUserMenuBtn" title="User Account Menu">
+              <div class="user-avatar" style="width: 26px; height: 26px; font-size: 0.75rem; font-weight: 700; background-color: var(--primary);">
+                {{ current_user.full_name[:1].upper() if current_user.full_name else 'S' }}
+              </div>
+              <span class="user-chip-name">{{ current_user.full_name | default('System Administrator') }}</span>
+              <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem; color: var(--text-muted);"></i>
+            </div>
+
+            <!-- User Account Dropdown Menu -->
+            <div id="userAccountMenu" class="modal-window" style="position: absolute; right: 0; top: 48px; width: 290px; display: none; z-index: 200; box-shadow: var(--shadow-lg); border-radius: var(--radius-lg); background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 0.5rem 0;">
+              <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle);">
+                <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">{{ current_user.full_name | default('System Administrator') }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.35rem;">{{ current_user.email | default('admin@riskmanager.io') }}</div>
+                <span class="badge badge-risk-low" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;">{{ current_user.role | default('Admin') }}</span>
+              </div>
+
+              <div style="padding: 0.4rem 0;">
+                <a href="{{ url_for('settings_view') }}" class="dropdown-item" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 1rem; font-size: 0.84rem; color: var(--text-primary); text-decoration: none; transition: background 0.15s ease;">
+                  <i class="fa-solid fa-user-gear" style="color: var(--primary); width: 16px;"></i>
+                  <span>Profile & Preferences</span>
+                </a>
+                <a href="{{ url_for('register') }}" class="dropdown-item" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 1rem; font-size: 0.84rem; color: var(--text-primary); text-decoration: none; transition: background 0.15s ease;">
+                  <i class="fa-solid fa-user-plus" style="color: var(--accent); width: 16px;"></i>
+                  <span>Register New User</span>
+                </a>
+                <a href="{{ url_for('login') }}" class="dropdown-item" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 1rem; font-size: 0.84rem; color: var(--text-primary); text-decoration: none; transition: background 0.15s ease;">
+                  <i class="fa-solid fa-users" style="color: var(--secondary); width: 16px;"></i>
+                  <span>Switch Account / Sign In</span>
+                </a>
+              </div>
+
+              <div style="border-top: 1px solid var(--border-subtle); padding: 0.4rem 0 0.1rem;">
+                <a href="{{ url_for('logout') }}" class="dropdown-item text-danger" style="display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 1rem; font-size: 0.84rem; color: var(--risk-critical); text-decoration: none; font-weight: 600; transition: background 0.15s ease;">
+                  <i class="fa-solid fa-arrow-right-from-bracket" style="width: 16px;"></i>
+                  <span>Sign Out / Log Out</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action: Create Risk (Always fully visible!) -->
+          <button class="btn btn-primary btn-sm" onclick="ModalManager.open('globalAddRiskModal')" id="quickAddRiskBtn" style="white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; padding: 0.45rem 1rem; border-radius: var(--radius-md);">
+            <i class="fa-solid fa-plus"></i>
+            <span data-i18n="btn_add_risk">+ Add Risk</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Page Content -->
+      <main class="page-content">
+        <!-- Flash Alert Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+              {% for category, msg in messages %}
+                <div class="toast toast-{{ 'error' if category == 'error' else ('success' if category == 'success' else 'info') }} show" style="transform: none; position: static; max-width: 100%; width: 100%;">
+                  <div class="toast-icon">
+                    <i class="fa-solid {% if category == 'error' %}fa-triangle-exclamation{% elif category == 'success' %}fa-check{% else %}fa-circle-info{% endif %}"></i>
+                  </div>
+                  <div class="toast-content">
+                    <div class="toast-title">{{ category | capitalize }}</div>
+                    <div class="toast-message">{{ msg }}</div>
+                  </div>
+                  <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Global Add Risk Modal -->
+  <div class="modal-backdrop" id="globalAddRiskModal">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> <span data-i18n="btn_add_risk">Register New Software Risk</span></h3>
+        <button class="modal-close-btn" onclick="ModalManager.close('globalAddRiskModal')">&times;</button>
+      </div>
+      <form id="globalAddRiskForm" onsubmit="handleGlobalCreateRisk(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group col-span-2">
+              <label class="form-label" for="newRiskName" data-i18n="lbl_risk_desc">Risk Title / Description Summary *</label>
+              <input type="text" id="newRiskName" class="form-control" placeholder="e.g. AWS Regional Outage & Failover Inefficacy" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskCategory" data-i18n="lbl_category">Risk Category *</label>
+              <select id="newRiskCategory" class="form-control" required>
+                {% for cat in all_categories %}
+                  <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskStatus" data-i18n="lbl_status">Initial Status</label>
+              <select id="newRiskStatus" class="form-control">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Mitigated">Mitigated</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskProb" data-i18n="lbl_likelihood">Probability (1 = Rare, 5 = Certain) *</label>
+              <input type="range" id="newRiskProb" min="1" max="5" value="3" class="form-control" style="cursor: pointer;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                <span>1 (Rare)</span>
+                <span>2 (Unlikely)</span>
+                <span>3 (Possible)</span>
+                <span>4 (Likely)</span>
+                <span>5 (Certain)</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskImp" data-i18n="lbl_impact">Impact (1 = Very Low, 5 = Catastrophic) *</label>
+              <input type="range" id="newRiskImp" min="1" max="5" value="3" class="form-control" style="cursor: pointer;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                <span>1 (V.Low)</span>
+                <span>2 (Low)</span>
+                <span>3 (Medium)</span>
+                <span>4 (High)</span>
+                <span>5 (Critical)</span>
+              </div>
+            </div>
+
+            <!-- Live Score Calculation Box -->
+            <div class="form-group col-span-2">
+              <div class="live-calc-box">
+                <div class="calc-formula">
+                  <span>Score =</span>
+                  <span class="calc-factor" id="calcProbVal">Prob: 3</span>
+                  <span>×</span>
+                  <span class="calc-factor" id="calcImpVal">Impact: 3</span>
+                </div>
+                <div class="calc-result-badge">
+                  <span class="calc-score-display" id="calcScoreVal">9</span>
+                  <span class="badge badge-risk-medium" id="calcLevelBadge">Medium</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskOwner" data-i18n="lbl_owner">Risk Owner / Team</label>
+              <input type="text" id="newRiskOwner" class="form-control" value="DevOps & Platform Team" placeholder="e.g. SRE Core Team">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newRiskDept" data-i18n="lbl_department">Department</label>
+              <input type="text" id="newRiskDept" class="form-control" value="Engineering" placeholder="e.g. Security, SRE, Product">
+            </div>
+
+            <div class="form-group col-span-2">
+              <label class="form-label" for="newRiskMitigation" data-i18n="lbl_mitigation_strategy">Mitigation Strategy / Action Plan</label>
+              <textarea id="newRiskMitigation" class="form-control" rows="2" placeholder="Describe architectural controls, automated failovers, or redundancy protocols..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="ModalManager.close('globalAddRiskModal')" data-i18n="btn_cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveNewRiskBtn"><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="btn_save_risk">Register Risk</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Core Scripts -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+
+  <script>
+    // Live calculator hookup for global modal
+    document.addEventListener('DOMContentLoaded', () => {
+      const p = document.getElementById('newRiskProb');
+      const i = document.getElementById('newRiskImp');
+      const pv = document.getElementById('calcProbVal');
+      const iv = document.getElementById('calcImpVal');
+      const sv = document.getElementById('calcScoreVal');
+      const lb = document.getElementById('calcLevelBadge');
+
+      function updateCalc() {
+        if (!p || !i) return;
+        const prob = parseInt(p.value, 10);
+        const imp = parseInt(i.value, 10);
+        const score = prob * imp;
+        if (pv) pv.innerText = `Prob: ${prob}`;
+        if (iv) iv.innerText = `Impact: ${imp}`;
+        if (sv) sv.innerText = score;
+        
+        let level = 'Low';
+        let badgeCls = 'badge-risk-low';
+        if (score >= 17) { level = 'Critical'; badgeCls = 'badge-risk-critical'; }
+        else if (score >= 10) { level = 'High'; badgeCls = 'badge-risk-high'; }
+        else if (score >= 5) { level = 'Medium'; badgeCls = 'badge-risk-medium'; }
+
+        if (lb) {
+          lb.innerText = level;
+          lb.className = `badge ${badgeCls}`;
+        }
+      }
+
+      if (p && i) {
+        p.addEventListener('input', updateCalc);
+        i.addEventListener('input', updateCalc);
+        updateCalc();
+      }
+
+      // Close popovers on outside click
+      document.addEventListener('click', (e) => {
+        const notifMenu = document.getElementById('notifMenu');
+        const notifBtn = document.getElementById('notifBtn');
+        if (notifMenu && notifBtn && !notifMenu.contains(e.target) && !notifBtn.contains(e.target)) {
+          notifMenu.style.display = 'none';
+        }
+
+        const userMenu = document.getElementById('userAccountMenu');
+        const userBtn = document.getElementById('topbarUserMenuBtn');
+        if (userMenu && userBtn && !userMenu.contains(e.target) && !userBtn.contains(e.target)) {
+          userMenu.style.display = 'none';
+        }
+      });
+
+      const notifBtn = document.getElementById('notifBtn');
+      if (notifBtn) {
+        notifBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const notifMenu = document.getElementById('notifMenu');
+          if (notifMenu) {
+            notifMenu.style.display = notifMenu.style.display === 'block' ? 'none' : 'block';
+          }
+        });
+      }
+
+      const userBtn = document.getElementById('topbarUserMenuBtn');
+      if (userBtn) {
+        userBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const userMenu = document.getElementById('userAccountMenu');
+          if (userMenu) {
+            userMenu.style.display = userMenu.style.display === 'block' ? 'none' : 'block';
+          }
+        });
+      }
+    });
+
+    function handleGlobalCreateRisk(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('newRiskName').value.trim(),
+        category_id: parseInt(document.getElementById('newRiskCategory').value, 10),
+        probability: parseInt(document.getElementById('newRiskProb').value, 10),
+        impact: parseInt(document.getElementById('newRiskImp').value, 10),
+        status: document.getElementById('newRiskStatus').value,
+        owner: document.getElementById('newRiskOwner').value.trim(),
+        department: document.getElementById('newRiskDept').value.trim(),
+        mitigation_strategy: document.getElementById('newRiskMitigation').value.trim()
+      };
+
+      fetch('/api/risks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          Toast.show('Success', data.message, 'success');
+          ModalManager.close('globalAddRiskModal');
+          document.getElementById('globalAddRiskForm').reset();
+          if (typeof loadMatrixGrid === 'function') {
+            if (typeof selectedCellCoord !== 'undefined') {
+              selectedCellCoord = { impact: payload.impact, probability: payload.probability };
+            }
+            loadMatrixGrid(true);
+          } else if (typeof fetchRisks === 'function') {
+            fetchRisks(1);
+          } else {
+            setTimeout(() => window.location.reload(), 600);
+          }
+        } else {
+          Toast.show('Error', data.error || 'Failed to create risk', 'error');
+        }
+      })
+      .catch(err => {
+        Toast.show('Error', 'Network error creating risk', 'error');
+      });
+    }
+  </script>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

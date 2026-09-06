@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="monitoring-container" style="max-width: 1400px; margin: 0 auto; padding-bottom: 2.5rem;">
+  
+  <!-- Page Header -->
+  <div class="page-header" style="margin-bottom: 1.5rem;">
+    <div class="page-title-group">
+      <h1 style="font-size: 1.85rem; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; margin-bottom: 0.25rem;">
+        Risk Monitoring & Lifecycle Console
+      </h1>
+      <p class="page-subtitle" style="color: var(--text-secondary); font-size: 0.92rem;">
+        Continuous tracking, status transition management, and audit history
+      </p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" onclick="ModalManager.open('globalAddRiskModal')">
+        <i class="fa-solid fa-plus"></i>
+        <span>Register New Risk</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Status Filter Pill Tabs -->
+  <div class="filter-pill-bar">
+    <a href="{{ url_for('monitoring_view') }}" class="filter-pill-btn {% if not current_status %}active{% endif %}">
+      All Statuses
+    </a>
+    <a href="{{ url_for('monitoring_view', status='Identified') }}" class="filter-pill-btn {% if current_status == 'Identified' %}active{% endif %}">
+      Identified
+    </a>
+    <a href="{{ url_for('monitoring_view', status='Assessed') }}" class="filter-pill-btn {% if current_status == 'Assessed' or current_status == 'Analyzed' %}active{% endif %}">
+      Analyzed
+    </a>
+    <a href="{{ url_for('monitoring_view', status='In Progress') }}" class="filter-pill-btn {% if current_status == 'In Progress' or current_status == 'Monitoring' %}active{% endif %}">
+      Monitoring
+    </a>
+    <a href="{{ url_for('monitoring_view', status='Mitigated') }}" class="filter-pill-btn {% if current_status == 'Mitigated' %}active{% endif %}">
+      Mitigated
+    </a>
+    <a href="{{ url_for('monitoring_view', status='Open') }}" class="filter-pill-btn {% if current_status == 'Open' or current_status == 'Occurred' %}active{% endif %}">
+      Occurred
+    </a>
+    <a href="{{ url_for('monitoring_view', status='Closed') }}" class="filter-pill-btn {% if current_status == 'Closed' %}active{% endif %}">
+      Closed
+    </a>
+  </div>
+
+  <!-- Risk Cards Grid -->
+  {% if risks and risks|length > 0 %}
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 1.5rem;">
+    {% for r in risks %}
+    <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); background: var(--bg-surface); box-shadow: var(--shadow-sm);">
+      
+      <!-- Top Meta Header -->
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); font-family: var(--font-mono);">
+            #{{ r.display_num }} | {{ r.project_code }}
+          </span>
+          <span class="badge badge-risk-{{ r.risk_level.lower() }}">
+            {{ r.risk_level.upper() }} ({{ r.risk_score }})
+          </span>
+        </div>
+
+        <!-- Risk Title & Description -->
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem; line-height: 1.3;">
+          <a href="{{ url_for('risk_details', risk_id=r.id) }}" style="color: var(--text-primary); text-decoration: none;">
+            {{ r.name }}
+          </a>
+        </h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.45; min-height: 2.5rem;">
+          {{ r.description if r.description else 'No description provided.' }}
+        </p>
+
+        <!-- Current Status & Assigned Owner Row -->
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 1rem; background: var(--bg-surface-elevated); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+          <div>
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+              CURRENT STATUS
+            </div>
+            <span class="current-status-tag" id="currentStatusBadge_{{ r.id }}">
+              {{ r.status }}
+            </span>
+          </div>
+
+          <div>
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+              ASSIGNED OWNER
+            </div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary);" data-person="{{ r.owner }}">
+              {{ r.owner if r.owner else 'Unassigned' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Update Risk Status & Monitoring Note Form -->
+        <div style="margin-bottom: 1.25rem;">
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">
+            UPDATE RISK STATUS & MONITORING NOTE
+          </div>
+
+          <!-- Dropdown and Button Row -->
+          <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 0.75rem; margin-bottom: 0.65rem;">
+            <select id="statusSelect_{{ r.id }}" class="form-control" style="font-size: 0.85rem; font-weight: 500;">
+              <option value="Identified" {% if r.status == 'Identified' %}selected{% endif %}>Identified</option>
+              <option value="Assessed" {% if r.status == 'Assessed' or r.status == 'Analyzed' %}selected{% endif %}>Analyzed</option>
+              <option value="In Progress" {% if r.status == 'In Progress' or r.status == 'Monitoring' %}selected{% endif %}>Monitoring</option>
+              <option value="Mitigated" {% if r.status == 'Mitigated' %}selected{% endif %}>Mitigated</option>
+              <option value="Open" {% if r.status == 'Open' or r.status == 'Occurred' %}selected{% endif %}>Occurred</option>
+              <option value="Closed" {% if r.status == 'Closed' %}selected{% endif %}>Closed</option>
+            </select>
+
+            <button type="button" class="btn btn-primary btn-sm" onclick="recordMonitoringUpdate('{{ r.id }}')" id="recordBtn_{{ r.id }}">
+              Record Review Update
+            </button>
+          </div>
+
+          <!-- Note Inputs -->
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <input type="text" id="actionInput_{{ r.id }}" class="form-control" style="font-size: 0.82rem;" placeholder="Action taken e.g. Patched vulnerability...">
+            <input type="text" id="notesInput_{{ r.id }}" class="form-control" style="font-size: 0.82rem;" placeholder="Optional notes/comments...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Footer -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.85rem; border-top: 1px solid var(--border-subtle); margin-top: 0.5rem;">
+        <span style="font-size: 0.76rem; color: var(--text-muted);">
+          Last update: {{ r.updated_at[:16] if r.updated_at else '2026-08-15 12:40' }}
+        </span>
+        <a href="{{ url_for('risk_details', risk_id=r.id) }}" style="font-size: 0.82rem; font-weight: 600; color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>View History Timeline</span>
+          <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 4rem 2rem;">
+    <i class="fa-solid fa-clipboard-check" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 1rem; display: block;"></i>
+    <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; color: var(--text-primary);">No risks found for this status</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Select another status filter or register a new threat.</p>
+    <a href="{{ url_for('monitoring_view') }}" class="btn btn-primary btn-sm">
+      View All Statuses
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function recordMonitoringUpdate(riskId) {
+    const statusVal = document.getElementById(`statusSelect_${riskId}`).value;
+    const actionVal = document.getElementById(`actionInput_${riskId}`).value.trim();
+    const notesVal = document.getElementById(`notesInput_${riskId}`).value.trim();
+    const btn = document.getElementById(`recordBtn_${riskId}`);
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+    btn.disabled = true;
+
+    const payload = {
+      status: statusVal,
+      action_taken: actionVal,
+      notes: notesVal
+    };
+
+    fetch(`/api/risks/${riskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+
+      if (data.success) {
+        Toast.show('Update Recorded', `Risk ${riskId} status updated to ${statusVal}.`, 'success');
+        const badge = document.getElementById(`currentStatusBadge_${riskId}`);
+        if (badge) badge.innerText = statusVal;
+        document.getElementById(`actionInput_${riskId}`).value = '';
+        document.getElementById(`notesInput_${riskId}`).value = '';
+      } else {
+        Toast.show('Error', data.error || 'Failed to record update', 'error');
+      }
+    })
+    .catch(err => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      Toast.show('Error', 'Network error recording review', 'error');
+    });
+  }
+</script>
+{% endblock %}

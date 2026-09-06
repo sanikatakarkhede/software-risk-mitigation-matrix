@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_risks">Risk Management Repository</h1>
+    <p class="page-subtitle">Centralized register of identified software security, architectural, and operational threats.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('export_csv', type='risks') }}" class="btn btn-secondary" download>
+      <i class="fa-solid fa-file-csv"></i>
+      <span data-i18n="btn_export_csv">Export CSV</span>
+    </a>
+    <button class="btn btn-primary" onclick="ModalManager.open('globalAddRiskModal')">
+      <i class="fa-solid fa-plus"></i>
+      <span data-i18n="btn_add_risk">Register New Risk</span>
+    </button>
+  </div>
+</div>
+
+<!-- Matrix Coordinate Filter Active Banner -->
+<div id="matrixFilterBanner" class="matrix-guidance-banner" style="display: none; justify-content: space-between; margin-bottom: 1.25rem; background: var(--primary-light); border-color: var(--border-highlight);">
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <i class="fa-solid fa-table-cells" style="color: var(--primary);"></i>
+    <span id="matrixFilterText">Filtered by Matrix Cell</span>
+  </div>
+  <button type="button" class="btn btn-outline btn-sm" onclick="clearMatrixFilterOnRisks()">
+    <i class="fa-solid fa-filter-circle-xmark"></i>
+    <span>Clear Matrix Filter</span>
+  </button>
+</div>
+
+<!-- Search & Filtering Bar -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <input type="text" id="riskTableSearch" class="form-control" placeholder="Search by name, ID, owner..." data-i18n-placeholder="search_placeholder" style="min-width: 260px;" oninput="debounceFetchRisks()">
+    
+    <select id="filterCategory" class="filter-select" onchange="fetchRisks(1)">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select id="filterLevel" class="filter-select" onchange="fetchRisks(1)">
+      <option value="">All Risk Levels</option>
+      <option value="Critical">Critical (17-25)</option>
+      <option value="High">High (10-16)</option>
+      <option value="Medium">Medium (5-9)</option>
+      <option value="Low">Low (1-4)</option>
+    </select>
+
+    <select id="filterStatus" class="filter-select" onchange="fetchRisks(1)">
+      <option value="">All Statuses</option>
+      <option value="Identified">Identified</option>
+      <option value="Assessed">Assessed</option>
+      <option value="Mitigation Planned">Mitigation Planned</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Under Review">Under Review</option>
+      <option value="Reduced">Reduced</option>
+      <option value="Closed">Closed</option>
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <select id="sortBySelect" class="filter-select" onchange="fetchRisks(1)">
+      <option value="score">Sort by: Risk Score (High to Low)</option>
+      <option value="id">Sort by: Risk ID</option>
+      <option value="name">Sort by: Title</option>
+      <option value="date">Sort by: Date Identified</option>
+    </select>
+
+    <button class="btn btn-outline btn-sm" onclick="resetFilters()">
+      <i class="fa-solid fa-rotate-left"></i>
+      <span data-i18n="btn_reset_filters">Reset</span>
+    </button>
+  </div>
+</div>
+
+<!-- Risks Repository Table Card -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Risk ID</th>
+          <th data-i18n="lbl_risk_desc">Title & Mitigation Summary</th>
+          <th data-i18n="lbl_category">Category</th>
+          <th>
+            <span data-i18n="lbl_likelihood">Prob</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text">Likelihood on a scale of 1 (Rare) to 5 (Certain).</span></span>
+          </th>
+          <th>
+            <span data-i18n="lbl_impact">Imp</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text">Severity of impact from 1 (Low) to 5 (Catastrophic).</span></span>
+          </th>
+          <th>
+            <span data-i18n="lbl_risk_score">Score</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_score">Shows how serious a risk is based on its likelihood and impact.</span></span>
+          </th>
+          <th>Level</th>
+          <th>
+            <span data-i18n="lbl_progress">Mitigation</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_mitigation">Action steps taken to reduce the chance or impact of a risk.</span></span>
+          </th>
+          <th data-i18n="lbl_owner">Owner / Dept</th>
+          <th data-i18n="lbl_status">Status</th>
+          <th>Dataset</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="risksTableBody">
+        <tr>
+          <td colspan="12" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.8rem;"></i>
+            <p style="margin-top: 0.75rem;">Loading risk register...</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Table Pagination Footer -->
+  <div class="card-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div style="font-size: 0.85rem; color: var(--text-muted);" id="paginationInfo">
+      Showing 0 to 0 of 0 risks
+    </div>
+    <div class="pagination-controls" id="paginationControls"></div>
+  </div>
+</div>
+
+<!-- Edit Risk Modal -->
+<div class="modal-backdrop" id="editRiskModal">
+  <div class="modal-window" style="max-width: 680px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i>
+        <span>Edit Risk Profile</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('editRiskModal')">&times;</button>
+    </div>
+    <form id="editRiskForm" onsubmit="handleEditRiskSubmit(event)">
+      <input type="hidden" id="editRiskId">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group col-span-2">
+            <label class="form-label" for="editRiskName">Risk Title *</label>
+            <input type="text" id="editRiskName" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskCategory">Category</label>
+            <select id="editRiskCategory" class="form-control">
+              {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskStatus">Status</label>
+            <select id="editRiskStatus" class="form-control">
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Mitigated">Mitigated</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskProb">Probability (1 - 5)</label>
+            <input type="range" id="editRiskProb" min="1" max="5" class="form-control" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskImp">Impact (1 - 5)</label>
+            <input type="range" id="editRiskImp" min="1" max="5" class="form-control" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+
+          <!-- Live Score Box -->
+          <div class="form-group col-span-2">
+            <div class="live-calc-box">
+              <div class="calc-formula">
+                <span id="editProbLabel">Prob: 3</span>
+                <span>×</span>
+                <span id="editImpLabel">Impact: 3</span>
+              </div>
+              <div class="calc-result-badge">
+                <span class="calc-score-display" id="editScoreVal">9</span>
+                <span class="badge" id="editLevelBadge">Medium</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskOwner">Owner / Assignee</label>
+            <input type="text" id="editRiskOwner" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="editRiskDept">Department</label>
+            <input type="text" id="editRiskDept" class="form-control">
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label" for="editRiskStrategy">Mitigation Strategy Summary</label>
+            <textarea id="editRiskStrategy" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="ModalManager.close('editRiskModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Update Risk</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-backdrop" id="deleteRiskModal">
+  <div class="modal-window" style="max-width: 440px;">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color: var(--risk-critical);">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Confirm Deletion</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('deleteRiskModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+        Are you sure you want to permanently delete risk <strong id="deleteRiskTargetId" style="color: var(--text-primary);"></strong>?
+      </p>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">
+        This will also cascade delete all associated mitigation plans and historical assessment milestone logs.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="ModalManager.close('deleteRiskModal')">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteRiskBtn" onclick="executeDeleteRisk()"><i class="fa-solid fa-trash"></i> Delete Permanently</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let currentPage = 1;
+  let debounceTimer = null;
+  let pendingDeleteId = null;
+
+  function debounceFetchRisks() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => fetchRisks(1), 300);
+  }
+
+  const PROB_LABEL_MAP = {
+    1: '1 - Very Low',
+    2: '2 - Low',
+    3: '3 - Medium',
+    4: '4 - High',
+    5: '5 - Very High'
+  };
+
+  const IMPACT_LABEL_MAP = {
+    5: '5 - Very High',
+    4: '4 - High',
+    3: '3 - Medium',
+    2: '2 - Low',
+    1: '1 - Very Low'
+  };
+
+  let activeMatrixProb = null;
+  let activeMatrixImp = null;
+
+  function resetFilters() {
+    activeMatrixProb = null;
+    activeMatrixImp = null;
+    document.getElementById('matrixFilterBanner').style.display = 'none';
+    document.getElementById('riskTableSearch').value = '';
+    document.getElementById('filterCategory').value = '';
+    document.getElementById('filterLevel').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('sortBySelect').value = 'score';
+    
+    // Clear URL query params without reloading
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+
+    fetchRisks(1);
+  }
+
+  function clearMatrixFilterOnRisks() {
+    resetFilters();
+    Toast.show('Filter Cleared', 'Displaying all risks from register.', 'info', 2000);
+  }
+
+  function fetchRisks(page = 1) {
+    currentPage = page;
+    const search = encodeURIComponent(document.getElementById('riskTableSearch').value.trim());
+    const category = document.getElementById('filterCategory').value;
+    const level = document.getElementById('filterLevel').value;
+    const status = document.getElementById('filterStatus').value;
+    const sortBy = document.getElementById('sortBySelect').value;
+    const order = sortBy === 'score' ? 'desc' : 'asc';
+
+    let url = `/api/risks?search=${search}&category=${category}&level=${level}&status=${status}&sort=${sortBy}&order=${order}&page=${page}&per_page=10`;
+
+    if (activeMatrixProb) {
+      url += `&probability=${activeMatrixProb}`;
+    }
+    if (activeMatrixImp) {
+      url += `&impact=${activeMatrixImp}`;
+    }
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        renderRisksTable(data);
+      })
+      .catch(err => {
+        document.getElementById('risksTableBody').innerHTML = `
+          <tr>
+            <td colspan="11" style="text-align: center; color: var(--risk-critical); padding: 2rem;">
+              Failed to load risks.
+            </td>
+          </tr>
+        `;
+      });
+  }
+
+  function renderRisksTable(data) {
+    const tbody = document.getElementById('risksTableBody');
+    const risks = data.risks || [];
+
+    if (risks.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="12" style="text-align: center; padding: 2.5rem 1rem;">
+            <div style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+              <i class="fa-solid fa-folder-open" style="font-size: 2rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;"></i>
+              <strong data-i18n="lbl_no_risks_found">No matching risks found.</strong>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Try clearing filter criteria or analyzing a new risk.</p>
+            </div>
+            <a href="/assessment" class="btn btn-primary btn-sm">
+              <i class="fa-solid fa-plus"></i> <span data-i18n="btn_assess_new_threat">+ Analyze New Risk</span>
+            </a>
+          </td>
+        </tr>
+      `;
+      document.getElementById('paginationInfo').innerText = '0 records found';
+      document.getElementById('paginationControls').innerHTML = '';
+      return;
+    }
+
+    let html = '';
+    risks.forEach(r => {
+      const progress = r.mitigation_progress || 0;
+      const demoBadge = r.is_demo ?
+        `<span class="badge badge-demo" data-i18n="lbl_demo_data">Demo Data</span>` :
+        `<span class="badge badge-user-analysis" data-i18n="lbl_user_data">User Analysis</span>`;
+
+      html += `
+        <tr>
+          <td>
+            <a href="/risks/${r.id}" class="risk-id-tag">${r.id}</a>
+          </td>
+          <td>
+            <div class="risk-name-cell">
+              <a href="/risks/${r.id}">${r.name}</a>
+              <span>${r.description ? r.description.substring(0, 60) + '...' : ''}</span>
+            </div>
+          </td>
+          <td>
+            <span class="badge" style="background: ${r.category_color}22; color: ${r.category_color}; border: 1px solid ${r.category_color}44;">
+              <i class="fa-solid ${r.category_icon}"></i> ${r.category_name}
+            </span>
+          </td>
+          <td style="font-family: var(--font-mono); font-weight: 600;">${r.probability}/5</td>
+          <td style="font-family: var(--font-mono); font-weight: 600;">${r.impact}/5</td>
+          <td>
+            <span class="score-pill score-${r.risk_level.toLowerCase()}">${r.risk_score}</span>
+          </td>
+          <td>
+            <span class="badge badge-risk-${r.risk_level.toLowerCase()}">${r.risk_level}</span>
+          </td>
+          <td style="min-width: 110px;">
+            <div class="progress-container">
+              <div class="progress-header">
+                <span>Progress</span>
+                <span style="font-family: var(--font-mono);">${progress}%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${progress === 100 ? 'fill-success' : ''}" style="width: ${progress}%;"></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary);" data-person="${r.owner}">${r.owner}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${r.department}</div>
+          </td>
+          <td>
+            <span class="badge badge-status-${r.status.toLowerCase().replace(/ /g, '')}">${r.status}</span>
+          </td>
+          <td>
+            ${demoBadge}
+          </td>
+          <td>
+            <div class="table-actions">
+              <a href="/risks/${r.id}" class="action-icon-btn" title="View Risk" aria-label="View Risk">
+                <i class="fa-solid fa-eye"></i>
+              </a>
+              <button class="action-icon-btn" onclick="openEditRiskModal('${r.id}')" title="Edit Risk" aria-label="Edit Risk">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="action-icon-btn btn-delete" onclick="promptDeleteRisk('${r.id}')" title="Delete Risk" aria-label="Delete Risk">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+    if (window.RegionEngine) RegionEngine.applyPersonNames();
+    if (window.I18nEngine) I18nEngine.setLanguage(I18nEngine.currentLang, false);
+
+    // Update Pagination
+    const start = (data.page - 1) * data.per_page + 1;
+    const end = Math.min(data.total, data.page * data.per_page);
+    document.getElementById('paginationInfo').innerText = `Showing ${start} to ${end} of ${data.total} risks`;
+
+    let paginationHtml = '';
+    if (data.page > 1) {
+      paginationHtml += `<button class="btn btn-outline btn-sm" onclick="fetchRisks(${data.page - 1})"><i class="fa-solid fa-chevron-left"></i> Prev</button>`;
+    }
+    for (let p = 1; p <= data.total_pages; p++) {
+      paginationHtml += `
+        <button class="btn ${p === data.page ? 'btn-primary' : 'btn-outline'} btn-sm" style="min-width: 32px; padding: 0.4rem;" onclick="fetchRisks(${p})">
+          ${p}
+        </button>
+      `;
+    }
+    if (data.page < data.total_pages) {
+      paginationHtml += `<button class="btn btn-outline btn-sm" onclick="fetchRisks(${data.page + 1})">Next <i class="fa-solid fa-chevron-right"></i></button>`;
+    }
+    document.getElementById('paginationControls').innerHTML = paginationHtml;
+  }
+
+  function openEditRiskModal(riskId) {
+    fetch(`/api/risks/${riskId}`)
+      .then(res => res.json())
+      .then(data => {
+        const r = data.risk;
+        document.getElementById('editRiskId').value = r.id;
+        document.getElementById('editRiskName').value = r.name;
+        document.getElementById('editRiskCategory').value = r.category_id;
+        document.getElementById('editRiskStatus').value = r.status;
+        document.getElementById('editRiskProb').value = r.probability;
+        document.getElementById('editRiskImp').value = r.impact;
+        document.getElementById('editRiskOwner').value = r.owner;
+        document.getElementById('editRiskDept').value = r.department;
+        document.getElementById('editRiskStrategy').value = r.mitigation_strategy || '';
+
+        updateEditCalc();
+        ModalManager.open('editRiskModal');
+      });
+  }
+
+  function updateEditCalc() {
+    const p = parseInt(document.getElementById('editRiskProb').value, 10);
+    const i = parseInt(document.getElementById('editRiskImp').value, 10);
+    const score = p * i;
+    document.getElementById('editProbLabel').innerText = `Prob: ${p}`;
+    document.getElementById('editImpLabel').innerText = `Impact: ${i}`;
+    document.getElementById('editScoreVal').innerText = score;
+
+    const badge = document.getElementById('editLevelBadge');
+    let level = 'Low';
+    let badgeClass = 'badge-risk-low';
+    if (score >= 17) { level = 'Critical'; badgeClass = 'badge-risk-critical'; }
+    else if (score >= 10) { level = 'High'; badgeClass = 'badge-risk-high'; }
+    else if (score >= 5) { level = 'Medium'; badgeClass = 'badge-risk-medium'; }
+
+    badge.innerText = level;
+    badge.className = `badge ${badgeClass}`;
+  }
+
+  document.getElementById('editRiskProb').addEventListener('input', updateEditCalc);
+  document.getElementById('editRiskImp').addEventListener('input', updateEditCalc);
+
+  function handleEditRiskSubmit(e) {
+    e.preventDefault();
+    const riskId = document.getElementById('editRiskId').value;
+    const payload = {
+      name: document.getElementById('editRiskName').value.trim(),
+      category_id: parseInt(document.getElementById('editRiskCategory').value, 10),
+      status: document.getElementById('editRiskStatus').value,
+      probability: parseInt(document.getElementById('editRiskProb').value, 10),
+      impact: parseInt(document.getElementById('editRiskImp').value, 10),
+      owner: document.getElementById('editRiskOwner').value.trim(),
+      department: document.getElementById('editRiskDept').value.trim(),
+      mitigation_strategy: document.getElementById('editRiskStrategy').value.trim()
+    };
+
+    fetch(`/api/risks/${riskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Success', data.message, 'success');
+        ModalManager.close('editRiskModal');
+        fetchRisks(currentPage);
+      } else {
+        Toast.show('Error', data.error || 'Failed to update', 'error');
+      }
+    })
+    .catch(err => Toast.show('Error', 'Network error updating risk', 'error'));
+  }
+
+  function promptDeleteRisk(riskId) {
+    pendingDeleteId = riskId;
+    document.getElementById('deleteRiskTargetId').innerText = riskId;
+    ModalManager.open('deleteRiskModal');
+  }
+
+  function executeDeleteRisk() {
+    if (!pendingDeleteId) return;
+    fetch(`/api/risks/${pendingDeleteId}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          Toast.show('Deleted', data.message, 'info');
+          ModalManager.close('deleteRiskModal');
+          fetchRisks(currentPage);
+        } else {
+          Toast.show('Error', data.error, 'error');
+        }
+      });
+  }
+
+  // Handle URL query search and matrix filter params
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('search')) {
+      document.getElementById('riskTableSearch').value = params.get('search');
+    }
+    if (params.has('category')) {
+      document.getElementById('filterCategory').value = params.get('category');
+    }
+    if (params.has('level')) {
+      document.getElementById('filterLevel').value = params.get('level');
+    }
+    if (params.has('status')) {
+      document.getElementById('filterStatus').value = params.get('status');
+    }
+
+    if (params.has('probability') || params.has('impact')) {
+      activeMatrixProb = params.get('probability');
+      activeMatrixImp = params.get('impact');
+      const banner = document.getElementById('matrixFilterBanner');
+      const bannerText = document.getElementById('matrixFilterText');
+      if (banner && bannerText) {
+        banner.style.display = 'flex';
+        const probLabel = PROB_LABEL_MAP ? PROB_LABEL_MAP[activeMatrixProb] || activeMatrixProb : `Prob ${activeMatrixProb}`;
+        const impLabel = IMPACT_LABEL_MAP ? IMPACT_LABEL_MAP[activeMatrixImp] || activeMatrixImp : `Impact ${activeMatrixImp}`;
+        const score = (parseInt(activeMatrixProb || 1, 10) * parseInt(activeMatrixImp || 1, 10));
+        bannerText.innerHTML = `Filtered by Matrix Cell: <strong>Impact ${activeMatrixImp || 'Any'}</strong> × <strong>Probability ${activeMatrixProb || 'Any'}</strong> (Score <strong>${score}</strong>)`;
+      }
+    }
+
+    fetchRisks(1);
+  });
+</script>
+{% endblock %}

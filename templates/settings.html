@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_settings">System Configuration & Preferences</h1>
+    <p class="page-subtitle">Governance scoring parameters, risk banding criteria, user access roles, and system preferences.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-danger btn-sm" onclick="ModalManager.open('resetDataModal')">
+      <i class="fa-solid fa-rotate-left"></i>
+      <span>Reset Demo Dataset</span>
+    </button>
+  </div>
+</div>
+
+<!-- 2-Column Settings Layout -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+  <!-- Left Column: Customization & Scoring Parameters -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    
+    <!-- SYSTEM CUSTOMIZATION & REGION PREFERENCES -->
+    <div class="card" style="border: 1px solid var(--primary-light);">
+      <div class="card-header" style="background: var(--bg-surface-elevated);">
+        <div class="card-title">
+          <i class="fa-solid fa-sliders" style="color: var(--primary);"></i>
+          <span data-i18n="qs_title">System & Regional Preferences</span>
+        </div>
+        <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.72rem;">Live Toggle</span>
+      </div>
+      <div class="card-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        
+        <!-- Region Preference -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; justify-content: space-between;">
+            <span data-i18n="qs_region">Country / User Preference</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">INR (₹) / Realistic Names</span>
+          </label>
+          <div class="segmented-control" style="width: 100%;">
+            <button type="button" class="segmented-btn" id="settingsRegionIndian" onclick="QuickSettingsManager.setRegion('indian'); syncSettingsView();">
+              <i class="fa-solid fa-flag"></i> <span data-i18n="qs_indian">Indian (₹ INR)</span>
+            </button>
+            <button type="button" class="segmented-btn" id="settingsRegionIntl" onclick="QuickSettingsManager.setRegion('intl'); syncSettingsView();">
+              <i class="fa-solid fa-globe"></i> <span data-i18n="qs_intl">International ($ USD)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Language Preference -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; justify-content: space-between;">
+            <span data-i18n="qs_language">Language / भाषा</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Instant UI translation</span>
+          </label>
+          <div class="segmented-control" style="width: 100%;">
+            <button type="button" class="segmented-btn" id="settingsLangEn" onclick="QuickSettingsManager.setLanguage('en'); syncSettingsView();">
+              English
+            </button>
+            <button type="button" class="segmented-btn" id="settingsLangHi" onclick="QuickSettingsManager.setLanguage('hi'); syncSettingsView();">
+              हिंदी (Hindi)
+            </button>
+          </div>
+        </div>
+
+        <!-- Theme Preference -->
+        <div class="form-group">
+          <label class="form-label" style="display: flex; justify-content: space-between;">
+            <span data-i18n="qs_theme">Visual Appearance / Theme</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Dark Navy / Clean Light</span>
+          </label>
+          <div class="segmented-control" style="width: 100%;">
+            <button type="button" class="segmented-btn" id="settingsThemeDark" onclick="QuickSettingsManager.setTheme('dark'); syncSettingsView();">
+              <i class="fa-solid fa-moon"></i> <span data-i18n="qs_dark">Dark Theme</span>
+            </button>
+            <button type="button" class="segmented-btn" id="settingsThemeLight" onclick="QuickSettingsManager.setTheme('light'); syncSettingsView();">
+              <i class="fa-solid fa-sun"></i> <span data-i18n="qs_light">Light Theme</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Scoring Parameters & Thresholds -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i>
+          <span>Risk Banding & Score Thresholds</span>
+        </div>
+        <span class="badge badge-risk-low" style="font-size: 0.72rem;"><i class="fa-solid fa-lock"></i> Standard 5×5 Matrix Config</span>
+      </div>
+      <div class="card-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+          Severity bands are standardized across all modules (5×5 Probability × Impact scale from 1 to 25):
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Critical Severity Band</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="text" class="form-control" value="Score 17 – 25" readonly style="font-family: var(--font-mono); background: var(--bg-surface-elevated); cursor: default;">
+            <span class="badge badge-risk-critical" style="min-width: 100px; text-align: center;">Critical</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Immediate executive remediation and P0 sprint SLA.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">High Severity Band</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="text" class="form-control" value="Score 10 – 16" readonly style="font-family: var(--font-mono); background: var(--bg-surface-elevated); cursor: default;">
+            <span class="badge badge-risk-high" style="min-width: 100px; text-align: center;">High</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Active sprint priority and architectural treatment required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Medium Severity Band</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="text" class="form-control" value="Score 5 – 9" readonly style="font-family: var(--font-mono); background: var(--bg-surface-elevated); cursor: default;">
+            <span class="badge badge-risk-medium" style="min-width: 100px; text-align: center;">Medium</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Continuous monitoring and assigned engineering lead.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Low Severity Band</label>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="text" class="form-control" value="Score 1 – 4" readonly style="font-family: var(--font-mono); background: var(--bg-surface-elevated); cursor: default;">
+            <span class="badge badge-risk-low" style="min-width: 100px; text-align: center;">Low</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Standard operational SLA and routine baseline testing.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Matrix Grid Scale</label>
+          <input type="text" class="form-control" value="5 × 5 Standard Likelihood × Impact Grid" readonly style="background: var(--bg-surface-elevated); cursor: default;">
+        </div>
+      </div>
+      <div class="card-footer" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
+        <span><i class="fa-solid fa-circle-check" style="color: var(--risk-low);"></i> Enforced in calculations across all modules</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Team & Role Management -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-users-gear" style="color: var(--secondary);"></i>
+          <span>Demo Team Profiles & Roles ({{ users | length }})</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th data-i18n="lbl_owner">User</th>
+              <th>Role</th>
+              <th>Department</th>
+              <th>Demo Switch</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div class="user-avatar" style="background-color: {{ u.avatar_color }}; width: 32px; height: 32px; font-size: 0.8rem;">
+                      {{ u.full_name[:2].upper() }}
+                    </div>
+                    <div>
+                      <div style="font-weight: 600; color: var(--text-primary);" data-person="{{ u.full_name }}">{{ u.full_name }}</div>
+                      <div style="font-size: 0.72rem; color: var(--text-muted);">@{{ u.username }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge" style="background: var(--primary-light); color: var(--primary);">{{ u.role }}</span>
+                </td>
+                <td style="font-size: 0.82rem;">{{ u.department }}</td>
+                <td>
+                  <button class="btn btn-outline btn-sm" style="padding: 0.3rem 0.65rem; font-size: 0.75rem;" onclick="loginAsDemo('{{ 'admin' if u.username == 'admin' else ('manager' if u.username == 'risk_manager' else ('dev' if u.username == 'dev_lead' else 'auditor')) }}')">
+                    Switch Demo User
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Data Reset & Diagnostics -->
+    <div class="card" style="border-color: var(--risk-critical-border);">
+      <div class="card-header" style="background: var(--risk-critical-bg);">
+        <div class="card-title" style="color: var(--risk-critical);">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Sandbox Data Controls</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5;">
+          Restore the application database to its pristine sample state with pre-populated realistic risks, mitigation plans, audit histories, and team accounts.
+        </p>
+        <button class="btn btn-danger" onclick="ModalManager.open('resetDataModal')">
+          <i class="fa-solid fa-database"></i>
+          <span>Reseed Pristine Sample Data</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Data Modal -->
+<div class="modal-backdrop" id="resetDataModal">
+  <div class="modal-window" style="max-width: 460px;">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color: var(--risk-critical);">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Confirm Database Reset</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('resetDataModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.95rem;">
+        Are you sure? This will replace the current demo data with the original sample dataset.
+      </p>
+      <p style="font-size: 0.82rem; color: var(--text-muted);">
+        All custom modified risks, newly added plans, and reassessment milestone logs will be reseeded to pristine baseline values.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="ModalManager.close('resetDataModal')">Cancel</button>
+      <button type="button" class="btn btn-danger" onclick="executeResetData()"><i class="fa-solid fa-rotate-left"></i> Reset Dataset</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function syncSettingsView() {
+    const region = localStorage.getItem('srmm_region') || 'indian';
+    const lang = localStorage.getItem('srmm_lang') || 'en';
+    const theme = localStorage.getItem('srmm_theme') || 'dark';
+
+    const rInd = document.getElementById('settingsRegionIndian');
+    const rInt = document.getElementById('settingsRegionIntl');
+    if (rInd && rInt) {
+      rInd.classList.toggle('active', region === 'indian');
+      rInt.classList.toggle('active', region === 'intl');
+    }
+
+    const lEn = document.getElementById('settingsLangEn');
+    const lHi = document.getElementById('settingsLangHi');
+    if (lEn && lHi) {
+      lEn.classList.toggle('active', lang === 'en');
+      lHi.classList.toggle('active', lang === 'hi');
+    }
+
+    const tDk = document.getElementById('settingsThemeDark');
+    const tLt = document.getElementById('settingsThemeLight');
+    if (tDk && tLt) {
+      tDk.classList.toggle('active', theme === 'dark');
+      tLt.classList.toggle('active', theme === 'light');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    syncSettingsView();
+  });
+
+  function handleSaveSettings(e) {
+    e.preventDefault();
+    const payload = {
+      critical_threshold: document.getElementById('critThreshold').value,
+      high_threshold: document.getElementById('highThreshold').value,
+      medium_threshold: document.getElementById('medThreshold').value
+    };
+
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Saved', 'Scoring rules saved successfully', 'success');
+      }
+    });
+  }
+
+  function executeResetData() {
+    fetch('/api/reset-demo-data', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          Toast.show('Reseed Complete', data.message, 'success');
+          ModalManager.close('resetDataModal');
+          setTimeout(() => window.location.href = '/dashboard', 800);
+        } else {
+          Toast.show('Error', data.error, 'error');
+        }
+      });
+  }
+</script>
+{% endblock %}

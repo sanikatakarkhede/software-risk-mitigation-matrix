@@ -1,0 +1,888 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="assessment-container" style="max-width: 1000px; margin: 0 auto; padding-bottom: 3rem;">
+  <!-- Header Banner -->
+  <div style="margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; border-radius: 9999px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.5rem;">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <span>Guided Risk Assessment Workflow</span>
+        </div>
+        <h1 style="font-size: 1.85rem; font-family: var(--font-heading); margin-bottom: 0.35rem; color: var(--text-primary);" data-i18n="nav_assessment">Project Risk Assessment</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Set up your project and identify the areas that may require attention.</p>
+      </div>
+
+      {% if projects %}
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <label for="projectSelector" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Active Project:</label>
+        <select id="projectSelector" class="form-control" style="width: auto; min-width: 220px; font-size: 0.85rem;" onchange="handleProjectSelect(this.value)">
+          <option value="new">+ Create New Project</option>
+          {% for p in projects %}
+            <option value="{{ p.id }}" {% if loop.first %}selected{% endif %}>{{ p.name }} ({{ p.risk_count }} Risks)</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Stepper Indicator -->
+  <div class="card" style="margin-bottom: 1.75rem; padding: 1.25rem 1.5rem;">
+    <div class="stepper-nav" style="display: flex; justify-content: space-between; align-items: center; position: relative;">
+      <div class="stepper-line" style="position: absolute; top: 18px; left: 40px; right: 40px; height: 2px; background: var(--border-color); z-index: 1;">
+        <div id="stepperProgress" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease;"></div>
+      </div>
+
+      <div class="step-item active" id="stepIndicator1" onclick="goToStep(1)" style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; background: var(--bg-card); padding: 0 0.5rem;">
+        <div class="step-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem; box-shadow: 0 0 12px rgba(99,102,241,0.4);">1</div>
+        <span class="step-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary); margin-top: 0.35rem;">Project Setup</span>
+      </div>
+
+      <div class="step-item" id="stepIndicator2" onclick="goToStep(2)" style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; background: var(--bg-card); padding: 0 0.5rem;">
+        <div class="step-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem;">2</div>
+        <span class="step-label" style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 0.35rem;">Concern Areas</span>
+      </div>
+
+      <div class="step-item" id="stepIndicator3" onclick="goToStep(3)" style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; background: var(--bg-card); padding: 0 0.5rem;">
+        <div class="step-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem;">3</div>
+        <span class="step-label" style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 0.35rem;">Assess Threat</span>
+      </div>
+
+      <div class="step-item" id="stepIndicator4" onclick="goToStep(4)" style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; background: var(--bg-card); padding: 0 0.5rem;">
+        <div class="step-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem;">4</div>
+        <span class="step-label" style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 0.35rem;">Mitigation</span>
+      </div>
+
+      <div class="step-item" id="stepIndicator5" style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; background: var(--bg-card); padding: 0 0.5rem;">
+        <div class="step-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem;">5</div>
+        <span class="step-label" style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin-top: 0.35rem;">Governance</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- STEP 1: PROJECT SETUP FORM -->
+  <!-- ==================================================== -->
+  <div class="assessment-step card" id="stepCard1">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(99,102,241,0.15); color: #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+          <i class="fa-solid fa-folder-plus"></i>
+        </div>
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin: 0;">Step 1: Project Details</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Define your software project characteristics and operational boundaries.</p>
+        </div>
+      </div>
+    </div>
+
+    <form id="projectForm" onsubmit="event.preventDefault(); submitStep1();">
+      <input type="hidden" id="activeProjectId" value="{{ projects[0].id if projects else '' }}">
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+        <div class="form-group">
+          <label class="form-label" for="projName">Project Name <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="projName" class="form-control" placeholder="e.g. Retail Banking Mobile App & API Gateway" value="{{ projects[0].name if projects else 'Cloud Banking Mobile App & API Gateway' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="projType">Project Type</label>
+          <select id="projType" class="form-control">
+            <option value="Web & Mobile Application" selected>Web & Mobile Application</option>
+            <option value="Cloud Microservices Backend">Cloud Microservices Backend</option>
+            <option value="Enterprise ERP / CRM">Enterprise ERP / CRM</option>
+            <option value="Financial & Payment System">Financial & Payment System</option>
+            <option value="Data Pipeline & Analytics">Data Pipeline & Analytics</option>
+            <option value="Embedded / IoT System">Embedded / IoT System</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="projDesc">Short Project Description</label>
+        <textarea id="projDesc" class="form-control" rows="2" placeholder="Brief summary of project scope, core stakeholders and business objectives.">{{ projects[0].description if projects else 'Next-generation retail banking mobile client and resilient cloud microservices API gateway.' }}</textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="form-group">
+          <label class="form-label" for="projTech">Technology Stack</label>
+          <input type="text" id="projTech" class="form-control" placeholder="e.g. React Native, Node.js, AWS" value="{{ projects[0].tech_stack if projects else 'React Native, TypeScript, Node.js, PostgreSQL, AWS' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projTeamSize">Team Size</label>
+          <input type="number" id="projTeamSize" class="form-control" min="1" max="500" value="{{ projects[0].team_size if projects else '8' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projStage">Project Stage</label>
+          <select id="projStage" class="form-control">
+            <option value="Planning">Planning</option>
+            <option value="Development" selected>Development</option>
+            <option value="Testing">Testing & QA</option>
+            <option value="Deployment">Deployment</option>
+            <option value="Maintenance">Maintenance</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projDeployment">Deployment Type</label>
+          <select id="projDeployment" class="form-control">
+            <option value="Cloud" selected>Cloud (AWS/GCP/Azure)</option>
+            <option value="On-Premise">On-Premise Server</option>
+            <option value="Hybrid">Hybrid Cloud</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+        <button type="submit" class="btn btn-primary btn-md">
+          <span>Continue to Risk Concerns</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- STEP 2: CONCERN SELECTION CARDS -->
+  <!-- ==================================================== -->
+  <div class="assessment-step card" id="stepCard2" style="display: none;">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(245,158,11,0.15); color: #fbbf24; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+          <i class="fa-solid fa-layer-group"></i>
+        </div>
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin: 0;">Step 2: Risk Concern Selection</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">What operational and engineering areas are you concerned about in this project?</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.85rem;" id="concernsGrid">
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Security')">
+          <input type="checkbox" name="concerns" value="Security" checked style="display: none;">
+          <div class="concern-icon" style="color: #ef4444;"><i class="fa-solid fa-shield-halved"></i></div>
+          <div class="concern-title">Security & Vulnerability</div>
+          <div class="concern-desc">Authentication, data leaks, SQLi</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Performance')">
+          <input type="checkbox" name="concerns" value="Performance" checked style="display: none;">
+          <div class="concern-icon" style="color: #f59e0b;"><i class="fa-solid fa-gauge-high"></i></div>
+          <div class="concern-title">Performance & Latency</div>
+          <div class="concern-desc">Slow response, load spikes</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Budget')">
+          <input type="checkbox" name="concerns" value="Budget" checked style="display: none;">
+          <div class="concern-icon" style="color: #10b981;"><i class="fa-solid fa-wallet"></i></div>
+          <div class="concern-title">Budget & Cloud Cost</div>
+          <div class="concern-desc">OpEx overrun, billing surprises</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Schedule')">
+          <input type="checkbox" name="concerns" value="Schedule" checked style="display: none;">
+          <div class="concern-icon" style="color: #6366f1;"><i class="fa-solid fa-timeline"></i></div>
+          <div class="concern-title">Schedule & Delivery</div>
+          <div class="concern-desc">Milestone slippage, blockers</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Requirements')">
+          <input type="checkbox" name="concerns" value="Requirements" checked style="display: none;">
+          <div class="concern-icon" style="color: #8b5cf6;"><i class="fa-solid fa-arrows-split-up-and-left"></i></div>
+          <div class="concern-title">Requirements & Scope</div>
+          <div class="concern-desc">Scope creep, churn in sprint</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Technology')">
+          <input type="checkbox" name="concerns" value="Technology" checked style="display: none;">
+          <div class="concern-icon" style="color: #ec4899;"><i class="fa-solid fa-bug-slash"></i></div>
+          <div class="concern-title">Code Quality & Bugs</div>
+          <div class="concern-desc">Regressions, lack of test gates</div>
+        </label>
+
+        <label class="concern-card" onclick="toggleConcern(this, 'Team')">
+          <input type="checkbox" name="concerns" value="Team" style="display: none;">
+          <div class="concern-icon" style="color: #3b82f6;"><i class="fa-solid fa-users-gear"></i></div>
+          <div class="concern-title">Team & Key Staff</div>
+          <div class="concern-desc">Knowledge silos, turnover</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Compliance')">
+          <input type="checkbox" name="concerns" value="Compliance" checked style="display: none;">
+          <div class="concern-icon" style="color: #14b8a6;"><i class="fa-solid fa-file-shield"></i></div>
+          <div class="concern-title">Compliance & Audits</div>
+          <div class="concern-desc">SOC 2, ISO 27001, GDPR laws</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Data')">
+          <input type="checkbox" name="concerns" value="Data" checked style="display: none;">
+          <div class="concern-icon" style="color: #06b6d4;"><i class="fa-solid fa-database"></i></div>
+          <div class="concern-title">Data Loss & Backup</div>
+          <div class="concern-desc">Corruption, sync delay, restore</div>
+        </label>
+
+        <label class="concern-card selected" onclick="toggleConcern(this, 'Infrastructure')">
+          <input type="checkbox" name="concerns" value="Infrastructure" checked style="display: none;">
+          <div class="concern-icon" style="color: #f97316;"><i class="fa-solid fa-server"></i></div>
+          <div class="concern-title">Infrastructure & Uptime</div>
+          <div class="concern-desc">Server outage, multi-region</div>
+        </label>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <button type="button" class="btn btn-secondary btn-md" onclick="goToStep(1)">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Back</span>
+      </button>
+      <button type="button" class="btn btn-primary btn-md" onclick="submitStep2()">
+        <span>Continue to Assess Threats</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- STEP 3: QUICK RISK ASSESSMENT FORM & LIVE SCORE -->
+  <!-- ==================================================== -->
+  <div class="assessment-step card" id="stepCard3" style="display: none;">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(239,68,68,0.15); color: #f87171; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin: 0;">Step 3: Threat Identification & Scoring</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Evaluate what could go wrong, its likelihood, and potential project impact.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.5rem; align-items: start;">
+      <!-- Threat Form -->
+      <form id="riskAssessmentForm" onsubmit="event.preventDefault(); submitStep3();">
+        <div class="form-group" style="margin-bottom: 1.15rem;">
+          <label class="form-label" for="threatName">What could go wrong? (Risk Title) <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="threatName" class="form-control" placeholder="e.g. Payment Gateway Webhook Latency causing lost checkout orders" value="Payment Gateway Latency Spikes during Peak Traffic" required oninput="updateLiveCalculation()">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.15rem;">
+          <label class="form-label" for="threatCategory">Which area does it affect? <span style="color: var(--danger);">*</span></label>
+          <select id="threatCategory" class="form-control" required onchange="handleCategoryChange()">
+            {% for c in categories %}
+              <option value="{{ c.id }}" data-name="{{ c.name }}" {% if loop.index == 8 %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.15rem;">
+          <label class="form-label" for="threatDesc">Description / Context Details</label>
+          <textarea id="threatDesc" class="form-control" rows="2" placeholder="Explain the underlying cause, triggers, and consequences on the system.">Third-party payment processor API response latency exceeding 3500ms causing cart abandonment and transaction state inconsistency.</textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" for="threatProbability" style="margin: 0;">Likelihood (1–5)</label>
+              <span id="probBadge" style="font-size: 0.78rem; font-weight: 600; color: var(--warning);">Level 3 — Possible</span>
+            </div>
+            <select id="threatProbability" class="form-control" onchange="updateLiveCalculation()">
+              <option value="1">1 — Very Low (Rare, &lt;10%)</option>
+              <option value="2">2 — Low (Unlikely, 10-30%)</option>
+              <option value="3" selected>3 — Medium (Possible, 30-60%)</option>
+              <option value="4">4 — High (Likely, 60-85%)</option>
+              <option value="5">5 — Very High (Almost Certain, &gt;85%)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" for="threatImpact" style="margin: 0;">Impact Severity (1–5)</label>
+              <span id="impactBadge" style="font-size: 0.78rem; font-weight: 600; color: var(--danger);">Level 4 — Major</span>
+            </div>
+            <select id="threatImpact" class="form-control" onchange="updateLiveCalculation()">
+              <option value="1">1 — Negligible (Minor inconvenience)</option>
+              <option value="2">2 — Minor (Slight delay/friction)</option>
+              <option value="3">3 — Moderate (Noticeable system impact)</option>
+              <option value="4" selected>4 — Major (Significant revenue/SLA hit)</option>
+              <option value="5">5 — Catastrophic (Total outage/data loss)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label" for="threatOwner">Who should be responsible? <span style="color: var(--danger);">*</span></label>
+            <select id="threatOwner" class="form-control" required>
+              {% for u in users %}
+                <option value="{{ u.full_name }}" {% if u.role == 'Developer' or loop.first %}selected{% endif %}>{{ u.full_name }} ({{ u.role }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="threatDepartment">Department</label>
+            <select id="threatDepartment" class="form-control">
+              <option value="Engineering" selected>Engineering Core</option>
+              <option value="Infrastructure">Infrastructure & Cloud</option>
+              <option value="Security">Security & Privacy</option>
+              <option value="Quality Assurance">Quality Assurance</option>
+              <option value="Product">Product Management</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn btn-secondary btn-md" onclick="goToStep(2)">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Back</span>
+          </button>
+          <button type="submit" class="btn btn-primary btn-md">
+            <span>Review & Plan Mitigation</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </form>
+
+      <!-- Live Score & Severity Calculation Box -->
+      <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; text-align: center;">
+        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;">
+          Calculated Risk Score
+        </div>
+
+        <div id="liveScoreValue" style="font-size: 3.5rem; font-weight: 800; font-family: var(--font-heading); color: #f97316; line-height: 1; margin-bottom: 0.5rem;">
+          12
+        </div>
+
+        <div id="liveSeverityBadge" class="badge badge-high" style="font-size: 0.9rem; padding: 0.35rem 1rem; border-radius: 9999px; margin-bottom: 1.25rem;">
+          High Severity
+        </div>
+
+        <div style="background: var(--bg-card); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.8rem; text-align: left; margin-bottom: 1.25rem; border: 1px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+            <span style="color: var(--text-muted);">Formula:</span>
+            <span style="font-weight: 600; color: var(--text-primary);">Likelihood (L) × Impact (I)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+            <span style="color: var(--text-muted);">Current Computation:</span>
+            <span id="liveFormulaText" style="font-weight: 700; color: var(--primary);">3 × 4 = 12</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Severity Threshold:</span>
+            <span id="liveThresholdText" style="font-weight: 600; color: #f97316;">10–16 (High)</span>
+          </div>
+        </div>
+
+        <!-- Matrix Band Reference -->
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-align: left;">
+          <div style="margin-bottom: 0.25rem;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 4px;"></span> <strong>Critical:</strong> 17–25 (Immediate resolution)</div>
+          <div style="margin-bottom: 0.25rem;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f97316; margin-right: 4px;"></span> <strong>High:</strong> 10–16 (Senior ownership)</div>
+          <div style="margin-bottom: 0.25rem;"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-right: 4px;"></span> <strong>Medium:</strong> 5–9 (Mitigation planned)</div>
+          <div><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; margin-right: 4px;"></span> <strong>Low:</strong> 1–4 (Acceptable baseline)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- STEP 4: REVIEW & SUGGESTED MITIGATION -->
+  <!-- ==================================================== -->
+  <div class="assessment-step card" id="stepCard4" style="display: none;">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(16,185,129,0.15); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+          <i class="fa-solid fa-list-check"></i>
+        </div>
+        <div>
+          <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin: 0;">Step 4: Risk Review & Practical Mitigation</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Review your assessed threat and establish an actionable mitigation plan.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Review Summary Card -->
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;">
+        Assessed Threat Summary
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem; align-items: center;">
+        <div>
+          <div id="reviewTitle" style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
+            Payment Gateway Latency Spikes during Peak Traffic
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-muted);">
+            <span id="reviewCategory" style="color: #06b6d4; font-weight: 600;">Third-Party & Vendor APIs</span>
+            <span>•</span>
+            <span id="reviewOwner">Rohan Deshmukh</span>
+          </div>
+        </div>
+
+        <div style="text-align: center; background: var(--bg-card); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Likelihood</div>
+          <div id="reviewProb" style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">3 / 5</div>
+        </div>
+
+        <div style="text-align: center; background: var(--bg-card); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Impact</div>
+          <div id="reviewImpact" style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">4 / 5</div>
+        </div>
+
+        <div style="text-align: center; background: var(--bg-card); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="font-size: 0.7rem; color: var(--text-muted);">Score & Band</div>
+          <div id="reviewScoreBadge" class="badge badge-high" style="font-weight: 700; font-size: 0.85rem; padding: 0.25rem 0.6rem;">12 — High</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggested Mitigation Recommendation Section -->
+    <div style="background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.25); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-lightbulb" style="color: #818cf8; font-size: 1.1rem;"></i>
+          <span style="font-size: 0.95rem; font-weight: 700; color: #818cf8;">Suggested Mitigation Strategy</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="fetchSuggestedMitigation()">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span>Refresh Recommendation</span>
+        </button>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="mitigationStrategyInput">Strategy Title</label>
+        <input type="text" id="mitigationStrategyInput" class="form-control" value="Implement dynamic multi-gateway failover with asynchronous retry queues">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="mitigationStepsInput">Action Steps</label>
+        <textarea id="mitigationStepsInput" class="form-control" rows="3">1. Wrap payment API calls in circuit breaker with 2500ms timeout.
+2. Add asynchronous retry queue with exponential backoff and jitter.
+3. Integrate secondary fallback payment provider gateway (Adyen).</textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="mitigationOwnerInput">Mitigation Owner</label>
+          <select id="mitigationOwnerInput" class="form-control">
+            {% for u in users %}
+              <option value="{{ u.full_name }}" {% if u.role == 'Developer' or loop.first %}selected{% endif %}>{{ u.full_name }} ({{ u.role }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="mitigationDateInput">Target Completion Date</label>
+          <input type="date" id="mitigationDateInput" class="form-control" value="2026-10-15">
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <button type="button" class="btn btn-secondary btn-md" onclick="goToStep(3)">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Edit Threat Details</span>
+      </button>
+      
+      <div style="display: flex; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary btn-md" onclick="saveRiskWithoutMitigation()">
+          <span>Save Risk Only</span>
+        </button>
+        <button type="button" class="btn btn-primary btn-md" id="saveAndMitigateBtn" onclick="saveRiskWithMitigation()">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Save Risk & Link Mitigation Plan</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- STEP 5: SUCCESS CONFIRMATION & TRACEABILITY -->
+  <!-- ==================================================== -->
+  <div class="assessment-step card" id="stepCard5" style="display: none; text-align: center; padding: 3rem 2rem;">
+    <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(16,185,129,0.15); border: 2px solid #10b981; color: #10b981; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1.25rem;">
+      <i class="fa-solid fa-check"></i>
+    </div>
+
+    <h2 style="font-size: 1.75rem; font-family: var(--font-heading); margin-bottom: 0.5rem; color: var(--text-primary);">
+      Risk Assessment Successfully Saved!
+    </h2>
+    <p style="color: var(--text-secondary); font-size: 1rem; max-width: 600px; margin: 0 auto 2rem;">
+      The threat has been registered in the database and linked to its mitigation plan. All portfolio analytics, 5×5 matrix, and reduction metrics are updated in real-time.
+    </p>
+
+    <!-- Result Pill -->
+    <div id="savedResultPill" style="display: inline-flex; align-items: center; gap: 1.25rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1.5rem; margin-bottom: 2rem;">
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Risk Reference</span>
+        <strong id="createdRiskId" style="font-size: 1.1rem; color: var(--primary);">RISK-013</strong>
+      </div>
+      <div style="height: 30px; width: 1px; background: var(--border-color);"></div>
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Initial Score</span>
+        <strong id="createdRiskScore" style="font-size: 1.1rem; color: #f97316;">12 (High)</strong>
+      </div>
+      <div style="height: 30px; width: 1px; background: var(--border-color);"></div>
+      <div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Status</span>
+        <strong id="createdRiskStatus" style="font-size: 1.1rem; color: #10b981;">Mitigation Planned</strong>
+      </div>
+    </div>
+
+    <!-- Navigation Action Buttons -->
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <button type="button" class="btn btn-secondary btn-md" onclick="resetAssessmentWorkflow()">
+        <i class="fa-solid fa-plus"></i>
+        <span>Assess Another Risk</span>
+      </button>
+      <a id="viewRiskDetailsLink" href="{{ url_for('risks_view') }}" class="btn btn-secondary btn-md">
+        <i class="fa-solid fa-eye"></i>
+        <span>View in Risk Register</span>
+      </a>
+      <a href="{{ url_for('mapping_view') }}" class="btn btn-secondary btn-md">
+        <i class="fa-solid fa-diagram-project"></i>
+        <span>Risk ↔ Mitigation Mapping</span>
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-md">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for Interactive Assessment Flow -->
+<script>
+let currentStep = 1;
+let assessedData = {
+  project_id: "{{ projects[0].id if projects else '' }}",
+  name: "",
+  category_id: 8,
+  category_name: "Third-Party & Vendor APIs",
+  description: "",
+  probability: 3,
+  impact: 4,
+  score: 12,
+  level: "High",
+  owner: "Rohan Deshmukh",
+  department: "Engineering",
+  mitigation_strategy: "",
+  mitigation_action_steps: "",
+  mitigation_owner: "Rohan Deshmukh",
+  target_date: "2026-10-15"
+};
+
+function goToStep(stepNumber) {
+  if (stepNumber < 1 || stepNumber > 5) return;
+  
+  // Hide all step cards
+  for (let i = 1; i <= 5; i++) {
+    const card = document.getElementById(`stepCard${i}`);
+    if (card) card.style.display = (i === stepNumber) ? 'block' : 'none';
+    
+    const indicator = document.getElementById(`stepIndicator${i}`);
+    if (indicator) {
+      if (i < stepNumber) {
+        indicator.className = 'step-item completed';
+        indicator.querySelector('.step-circle').style.background = '#10b981';
+        indicator.querySelector('.step-circle').style.color = 'white';
+        indicator.querySelector('.step-circle').innerHTML = '<i class="fa-solid fa-check" style="font-size: 0.8rem;"></i>';
+      } else if (i === stepNumber) {
+        indicator.className = 'step-item active';
+        indicator.querySelector('.step-circle').style.background = 'var(--primary)';
+        indicator.querySelector('.step-circle').style.color = 'white';
+        indicator.querySelector('.step-circle').innerText = i;
+      } else {
+        indicator.className = 'step-item';
+        indicator.querySelector('.step-circle').style.background = 'var(--bg-secondary)';
+        indicator.querySelector('.step-circle').style.color = 'var(--text-muted)';
+        indicator.querySelector('.step-circle').innerText = i;
+      }
+    }
+  }
+
+  // Update progress line
+  const progressPercent = ((stepNumber - 1) / 4) * 100;
+  const line = document.getElementById('stepperProgress');
+  if (line) line.style.width = `${progressPercent}%`;
+
+  currentStep = stepNumber;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function handleProjectSelect(val) {
+  if (val === 'new') {
+    document.getElementById('activeProjectId').value = '';
+    document.getElementById('projName').value = '';
+    document.getElementById('projDesc').value = '';
+    document.getElementById('projTech').value = '';
+    document.getElementById('projTeamSize').value = '5';
+  } else {
+    document.getElementById('activeProjectId').value = val;
+  }
+}
+
+function toggleConcern(el, concernName) {
+  const checkbox = el.querySelector('input[type="checkbox"]');
+  checkbox.checked = !checkbox.checked;
+  if (checkbox.checked) {
+    el.classList.add('selected');
+  } else {
+    el.classList.remove('selected');
+  }
+}
+
+function submitStep1() {
+  const name = document.getElementById('projName').value.trim();
+  if (!name) {
+    showToast('Validation Warning', 'Please enter a valid project name.', 'error');
+    return;
+  }
+  
+  assessedData.project_name = name;
+  goToStep(2);
+}
+
+function submitStep2() {
+  // Read checked concerns
+  const selectedConcerns = [];
+  document.querySelectorAll('input[name="concerns"]:checked').forEach(cb => {
+    selectedConcerns.push(cb.value);
+  });
+  assessedData.concerns = selectedConcerns;
+  goToStep(3);
+}
+
+function updateLiveCalculation() {
+  const prob = parseInt(document.getElementById('threatProbability').value) || 1;
+  const impact = parseInt(document.getElementById('threatImpact').value) || 1;
+  const score = prob * impact;
+  
+  let level = 'Low';
+  let badgeClass = 'badge-low';
+  let color = '#10b981';
+  let thresholdText = '1–4 (Low)';
+
+  if (score >= 17) {
+    level = 'Critical';
+    badgeClass = 'badge-critical';
+    color = '#ef4444';
+    thresholdText = '17–25 (Critical)';
+  } else if (score >= 10) {
+    level = 'High';
+    badgeClass = 'badge-high';
+    color = '#f97316';
+    thresholdText = '10–16 (High)';
+  } else if (score >= 5) {
+    level = 'Medium';
+    badgeClass = 'badge-medium';
+    color = '#f59e0b';
+    thresholdText = '5–9 (Medium)';
+  }
+
+  // Update UI Elements
+  document.getElementById('liveScoreValue').innerText = score;
+  document.getElementById('liveScoreValue').style.color = color;
+  
+  const badge = document.getElementById('liveSeverityBadge');
+  badge.className = `badge ${badgeClass}`;
+  badge.innerText = `${level} Severity`;
+
+  document.getElementById('liveFormulaText').innerText = `${prob} × ${impact} = ${score}`;
+  document.getElementById('liveThresholdText').innerText = thresholdText;
+  document.getElementById('liveThresholdText').style.color = color;
+
+  // Probability and impact badge text
+  const probLabels = ['1 — Very Low', '2 — Low', '3 — Possible', '4 — High', '5 — Very High'];
+  const impactLabels = ['1 — Negligible', '2 — Minor', '3 — Moderate', '4 — Major', '5 — Catastrophic'];
+  document.getElementById('probBadge').innerText = `Level ${prob} — ${probLabels[prob-1].split('—')[1] || ''}`;
+  document.getElementById('impactBadge').innerText = `Level ${impact} — ${impactLabels[impact-1].split('—')[1] || ''}`;
+
+  assessedData.probability = prob;
+  assessedData.impact = impact;
+  assessedData.score = score;
+  assessedData.level = level;
+}
+
+function handleCategoryChange() {
+  const catSelect = document.getElementById('threatCategory');
+  const selectedOpt = catSelect.options[catSelect.selectedIndex];
+  assessedData.category_id = parseInt(catSelect.value);
+  assessedData.category_name = selectedOpt.getAttribute('data-name');
+}
+
+function submitStep3() {
+  const name = document.getElementById('threatName').value.trim();
+  if (!name) {
+    showToast('Threat Details Required', 'Please enter a description of what could go wrong.', 'error');
+    return;
+  }
+
+  assessedData.name = name;
+  assessedData.description = document.getElementById('threatDesc').value.trim();
+  assessedData.owner = document.getElementById('threatOwner').value;
+  assessedData.department = document.getElementById('threatDepartment').value;
+  handleCategoryChange();
+
+  // Populate Step 4 review data
+  document.getElementById('reviewTitle').innerText = assessedData.name;
+  document.getElementById('reviewCategory').innerText = assessedData.category_name;
+  document.getElementById('reviewOwner').innerText = assessedData.owner;
+  document.getElementById('reviewProb').innerText = `${assessedData.probability} / 5`;
+  document.getElementById('reviewImpact').innerText = `${assessedData.impact} / 5`;
+  
+  const scoreBadge = document.getElementById('reviewScoreBadge');
+  scoreBadge.className = `badge badge-${assessedData.level.toLowerCase()}`;
+  scoreBadge.innerText = `${assessedData.score} — ${assessedData.level}`;
+
+  // Fetch initial suggested mitigation
+  fetchSuggestedMitigation();
+
+  goToStep(4);
+}
+
+function fetchSuggestedMitigation() {
+  const threatTitle = document.getElementById('threatName').value.trim();
+  const catName = assessedData.category_name || '';
+
+  fetch('/api/assessment/suggest-mitigation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      category_id: assessedData.category_id,
+      category_name: catName,
+      threat_name: threatTitle
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('mitigationStrategyInput').value = data.strategy;
+      document.getElementById('mitigationStepsInput').value = data.action_steps;
+      showToast('Practical Mitigation Loaded', 'Practical engineering strategy populated based on risk domain.', 'info');
+    }
+  })
+  .catch(err => {
+    console.error('Error fetching suggested mitigation:', err);
+  });
+}
+
+function saveRiskWithMitigation() {
+  saveRiskRecord(true);
+}
+
+function saveRiskWithoutMitigation() {
+  saveRiskRecord(false);
+}
+
+function saveRiskRecord(includeMitigation) {
+  const payload = {
+    project_id: document.getElementById('activeProjectId').value || null,
+    name: assessedData.name,
+    description: assessedData.description,
+    category_id: assessedData.category_id,
+    probability: assessedData.probability,
+    impact: assessedData.impact,
+    owner: assessedData.owner,
+    department: assessedData.department,
+    create_mitigation: includeMitigation,
+    mitigation_strategy: includeMitigation ? document.getElementById('mitigationStrategyInput').value.trim() : "",
+    mitigation_action_steps: includeMitigation ? document.getElementById('mitigationStepsInput').value.trim() : "",
+    mitigation_owner: includeMitigation ? document.getElementById('mitigationOwnerInput').value : assessedData.owner,
+    target_date: includeMitigation ? document.getElementById('mitigationDateInput').value : ""
+  };
+
+  const btn = document.getElementById('saveAndMitigateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving to Governance Register...</span>';
+
+  fetch('/api/assessment/create-risk-and-mitigation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save Risk & Link Mitigation Plan</span>';
+    
+    if (data.success) {
+      document.getElementById('createdRiskId').innerText = data.risk_id;
+      document.getElementById('createdRiskScore').innerText = `${data.risk_score} (${data.risk_level})`;
+      document.getElementById('createdRiskStatus').innerText = data.status;
+      document.getElementById('viewRiskDetailsLink').href = `/risks/${data.risk_id}`;
+      
+      showToast('Risk Governance Updated', `Risk ${data.risk_id} registered and connected!`, 'success');
+      goToStep(5);
+    } else {
+      showToast('Error', data.error || 'Failed to save risk assessment.', 'error');
+    }
+  })
+  .catch(err => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save Risk & Link Mitigation Plan</span>';
+    showToast('Network Error', 'Could not complete risk registration.', 'error');
+  });
+}
+
+function resetAssessmentWorkflow() {
+  document.getElementById('threatName').value = '';
+  document.getElementById('threatDesc').value = '';
+  document.getElementById('threatProbability').value = '3';
+  document.getElementById('threatImpact').value = '3';
+  updateLiveCalculation();
+  goToStep(3);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateLiveCalculation();
+});
+</script>
+
+<style>
+.concern-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.concern-card:hover {
+  border-color: rgba(99,102,241,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.concern-card.selected {
+  border-color: var(--primary);
+  background: rgba(99,102,241,0.08);
+}
+.concern-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.concern-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+.concern-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.stepper-nav .step-item.completed .step-circle {
+  background: #10b981 !important;
+  color: white !important;
+}
+</style>
+{% endblock %}

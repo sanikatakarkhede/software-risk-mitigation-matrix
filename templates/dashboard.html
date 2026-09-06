@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_dashboard">Executive Risk Dashboard</h1>
+    <p class="page-subtitle">Real-time threat assessment, vulnerability mitigation index, and risk exposure governance.</p>
+    <div class="dashboard-objective-banner" style="margin-top: 0.65rem; display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.84rem; color: var(--text-secondary); background: var(--bg-surface-elevated); padding: 0.45rem 0.9rem; border-radius: var(--radius-md); border-left: 3px solid var(--primary); border: 1px solid var(--border-subtle); border-left-width: 3px; border-left-color: var(--primary);">
+      <i class="fa-solid fa-bullseye" style="color: var(--primary);"></i>
+      <span data-i18n="lbl_objective"><strong>Objective:</strong> Identify, prioritize and reduce software risks through measurable mitigation actions.</span>
+    </div>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('matrix_view') }}" class="btn btn-secondary">
+      <i class="fa-solid fa-table-cells-large"></i>
+      <span data-i18n="btn_matrix_view">5×5 Matrix View</span>
+    </a>
+    <a href="{{ url_for('export_csv', type='risks') }}" class="btn btn-secondary" download>
+      <i class="fa-solid fa-download"></i>
+      <span data-i18n="btn_export_csv">Export CSV</span>
+    </a>
+    <button class="btn btn-primary" onclick="ModalManager.open('globalAddRiskModal')">
+      <i class="fa-solid fa-plus"></i>
+      <span data-i18n="btn_add_risk">Add Risk</span>
+    </button>
+  </div>
+</div>
+
+<!-- How This Software Works Section -->
+<div class="workflow-guide-card">
+  <div class="workflow-guide-header">
+    <h3>
+      <i class="fa-solid fa-circle-nodes" style="color: var(--primary);"></i>
+      <span data-i18n="lbl_how_it_works">How This Software Works</span>
+    </h3>
+    <a href="{{ url_for('assessment_view') }}" class="btn btn-outline btn-sm" style="font-size: 0.75rem;">
+      <i class="fa-solid fa-plus"></i> <span data-i18n="btn_assess_new_threat">+ Analyze New Risk</span>
+    </a>
+  </div>
+  <div class="workflow-steps-grid">
+    <div class="workflow-step-item">
+      <div class="workflow-step-num">1</div>
+      <div class="workflow-step-title" data-i18n="step_identify_title">1. Identify Risk</div>
+      <div class="workflow-step-desc" data-i18n="step_identify_desc">Find and write down potential threats or issues in your software project.</div>
+    </div>
+    <div class="workflow-step-item">
+      <div class="workflow-step-num">2</div>
+      <div class="workflow-step-title" data-i18n="step_assess_title">2. Assess Risk</div>
+      <div class="workflow-step-desc" data-i18n="step_assess_desc">Rate the likelihood and impact from 1 to 5 to get a clear Risk Score.</div>
+    </div>
+    <div class="workflow-step-item">
+      <div class="workflow-step-num">3</div>
+      <div class="workflow-step-title" data-i18n="step_mitigate_title">3. Select Mitigation</div>
+      <div class="workflow-step-desc" data-i18n="step_mitigate_desc">Plan practical actions and assign an owner to fix or reduce the risk.</div>
+    </div>
+    <div class="workflow-step-item">
+      <div class="workflow-step-num">4</div>
+      <div class="workflow-step-title" data-i18n="step_track_title">4. Track Risk Reduction</div>
+      <div class="workflow-step-desc" data-i18n="step_track_desc">Monitor progress as the risk score decreases towards safe levels.</div>
+    </div>
+    <div class="workflow-step-item">
+      <div class="workflow-step-num">5</div>
+      <div class="workflow-step-title" data-i18n="step_report_title">5. Generate Report</div>
+      <div class="workflow-step-desc" data-i18n="step_report_desc">Export audit-ready reports and executive summaries with one click.</div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Stats Grid -->
+<div class="kpi-grid">
+  <!-- Total Risks -->
+  <div class="kpi-card kpi-total">
+    <div class="kpi-header">
+      <span class="kpi-title">
+        <span data-i18n="lbl_total_risks">Total Active Risks</span>
+      </span>
+      <div class="kpi-icon"><i class="fa-solid fa-layer-group"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ stats.total | default(0) }}">{{ stats.total | default(0) }}</div>
+    <div class="kpi-footer">
+      <span class="kpi-badge positive"><i class="fa-solid fa-circle-check"></i> {{ stats.mitigated_count | default(0) }} Mitigated</span>
+      <span>across categories</span>
+    </div>
+  </div>
+
+  <!-- Critical Risks -->
+  <div class="kpi-card kpi-critical">
+    <div class="kpi-header">
+      <span class="kpi-title">
+        <span data-i18n="lbl_critical_severity">Critical Severity</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_score">Shows how serious a risk is based on its likelihood and impact.</span></span>
+      </span>
+      <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ stats.critical_count | default(0) }}" style="color: var(--risk-critical);">
+      {{ stats.critical_count | default(0) }}
+    </div>
+    <div class="kpi-footer">
+      <span class="kpi-badge negative"><i class="fa-solid fa-bolt"></i> Immediate Action</span>
+      <span>Score 17 - 25</span>
+    </div>
+  </div>
+
+  <!-- High Risks -->
+  <div class="kpi-card kpi-high">
+    <div class="kpi-header">
+      <span class="kpi-title" data-i18n="lbl_high_severity">High Severity</span>
+      <div class="kpi-icon"><i class="fa-solid fa-fire"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ stats.high_count | default(0) }}" style="color: var(--risk-high);">
+      {{ stats.high_count | default(0) }}
+    </div>
+    <div class="kpi-footer">
+      <span class="kpi-badge" style="background: var(--risk-high-bg); color: var(--risk-high);"><i class="fa-solid fa-clock"></i> Active Sprints</span>
+      <span>Score 10 - 16</span>
+    </div>
+  </div>
+
+  <!-- Medium Risks -->
+  <div class="kpi-card kpi-medium">
+    <div class="kpi-header">
+      <span class="kpi-title" data-i18n="lbl_medium_severity">Medium Severity</span>
+      <div class="kpi-icon"><i class="fa-solid fa-shield"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ stats.medium_count | default(0) }}" style="color: var(--risk-medium);">
+      {{ stats.medium_count | default(0) }}
+    </div>
+    <div class="kpi-footer">
+      <span class="kpi-badge" style="background: var(--risk-medium-bg); color: var(--risk-medium);"><i class="fa-solid fa-eye"></i> Under Monitoring</span>
+      <span>Score 5 - 9</span>
+    </div>
+  </div>
+
+  <!-- Low Risks -->
+  <div class="kpi-card kpi-low">
+    <div class="kpi-header">
+      <span class="kpi-title" data-i18n="lbl_low_severity">Low Severity</span>
+      <div class="kpi-icon"><i class="fa-solid fa-shield-check"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ stats.low_count | default(0) }}" style="color: var(--risk-low);">
+      {{ stats.low_count | default(0) }}
+    </div>
+    <div class="kpi-footer">
+      <span class="kpi-badge positive"><i class="fa-solid fa-check"></i> Controlled</span>
+      <span>Score 1 - 4</span>
+    </div>
+  </div>
+
+  <!-- Risk Score Velocity / Overall Reduction -->
+  <div class="kpi-card kpi-reduction">
+    <div class="kpi-header">
+      <span class="kpi-title">
+        <span data-i18n="lbl_overall_reduction">Overall Risk Reduction</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_reduction">Shows how much the risk has decreased after mitigation.</span></span>
+      </span>
+      <div class="kpi-icon"><i class="fa-solid fa-chart-line-down"></i></div>
+    </div>
+    <div class="kpi-value" data-counter="{{ risk_reduction_pct | default(0) }}" data-decimals="1" data-suffix="%" style="color: var(--accent);">
+      {{ risk_reduction_pct | default(0) }}%
+    </div>
+    <div class="kpi-footer">
+      <span class="kpi-badge positive"><i class="fa-solid fa-arrow-trend-down"></i> -{{ stats.points_mitigated | default(0) }} pts</span>
+      <span>Avg Score: {{ stats.avg_score | default(0) }} / 25</span>
+    </div>
+  </div>
+</div>
+
+<!-- Visual Analytics Row 1 -->
+<div class="charts-grid-2">
+  <!-- Distribution Doughnut Chart -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i>
+        <span>Risk Severity Distribution</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_score">Shows how serious a risk is based on its likelihood and impact.</span></span>
+      </div>
+      <a href="{{ url_for('risks_view') }}" class="btn btn-outline btn-sm" data-i18n="btn_view_details">View All</a>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="riskDistributionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Score Trend Line Chart -->
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-line" style="color: var(--secondary);"></i>
+        <span>Risk Reduction Velocity</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_reduction">Shows how much the risk has decreased after mitigation.</span></span>
+      </div>
+      <a href="{{ url_for('analytics_view') }}" class="btn btn-outline btn-sm" data-i18n="btn_view_details">Analytics</a>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="riskTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visual Analytics Row 2: Category Breakdown & Mitigation Status Summary -->
+<div class="charts-grid-2">
+  <div class="card chart-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-simple" style="color: var(--accent);"></i>
+        <span>Risks by Software Domain</span>
+      </div>
+      <a href="{{ url_for('matrix_view') }}" class="btn btn-outline btn-sm" data-i18n="btn_matrix_view">Matrix</a>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrapper">
+        <canvas id="categoryBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-list-check" style="color: var(--risk-low);"></i>
+        <span data-i18n="lbl_mitigation_progress">Mitigation Progress</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_mitigation">Action steps taken to reduce the chance or impact of a risk.</span></span>
+      </div>
+      <a href="{{ url_for('mitigation_view') }}" class="btn btn-outline btn-sm" data-i18n="btn_view_details">Manage Plans</a>
+    </div>
+    <div class="card-body" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Tracking implementation of architectural controls, test automation, security configurations, and failover workflows.
+        </p>
+
+        <div style="margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 0.4rem;">
+            <span>Completed Controls</span>
+            <span style="font-weight: 700; color: var(--risk-low);">{{ mitigation_stats.completed_pct | default(0) }}%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width: {{ mitigation_stats.completed_pct | default(0) }}%; background: var(--risk-low);"></div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 0.4rem;">
+            <span>Overall Actions in Progress</span>
+            <span style="font-weight: 700; color: var(--status-inprogress);">{{ mitigation_stats.in_progress_pct | default(0) }}%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width: {{ mitigation_stats.in_progress_pct | default(0) }}%; background: var(--status-inprogress);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 1.5rem; text-align: center;">
+        <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Plans</div>
+          <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading); margin-top: 0.25rem;">
+            {{ mitigation_stats.total_plans | default(0) }}
+          </div>
+        </div>
+        <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">In Progress</div>
+          <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading); color: var(--status-inprogress); margin-top: 0.25rem;">
+            {{ mitigation_stats.in_progress_plans | default(0) }}
+          </div>
+        </div>
+        <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Completed</div>
+          <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading); color: var(--risk-low); margin-top: 0.25rem;">
+            {{ mitigation_stats.completed_plans | default(0) }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Risks Table Card -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div class="card-title">
+      <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i>
+      <span>Recent Risks & Threat Identifications</span>
+    </div>
+    <a href="{{ url_for('risks_view') }}" class="btn btn-outline btn-sm" data-i18n="btn_view_details">View All {{ stats.total }} Risks</a>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Risk ID</th>
+          <th data-i18n="lbl_risk_desc">Risk Title & Scope</th>
+          <th data-i18n="lbl_category">Category</th>
+          <th>
+            <span data-i18n="lbl_likelihood">Probability</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text">Likelihood on a scale of 1 (Rare) to 5 (Certain).</span></span>
+          </th>
+          <th>
+            <span data-i18n="lbl_impact">Impact</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text">Severity of impact from 1 (Low) to 5 (Catastrophic).</span></span>
+          </th>
+          <th>
+            <span data-i18n="lbl_risk_score">Score</span>
+            <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_score">Shows how serious a risk is based on its likelihood and impact.</span></span>
+          </th>
+          <th>Level</th>
+          <th data-i18n="lbl_owner">Owner</th>
+          <th data-i18n="lbl_status">Status</th>
+          <th>Dataset</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if recent_risks %}
+          {% for r in recent_risks %}
+            <tr>
+              <td>
+                <a href="{{ url_for('risk_details', risk_id=r.id) }}" class="risk-id-tag">{{ r.id }}</a>
+              </td>
+              <td>
+                <div class="risk-name-cell">
+                  <a href="{{ url_for('risk_details', risk_id=r.id) }}">{{ r.name }}</a>
+                  <span>{{ r.description[:65] }}...</span>
+                </div>
+              </td>
+              <td>
+                <span class="badge" style="background: {{ r.category_color }}22; color: {{ r.category_color }}; border: 1px solid {{ r.category_color }}44;">
+                  <i class="fa-solid {{ r.category_icon }}"></i> {{ r.category_name }}
+                </span>
+              </td>
+              <td style="font-family: var(--font-mono); font-weight: 600;">{{ r.probability }}/5</td>
+              <td style="font-family: var(--font-mono); font-weight: 600;">{{ r.impact }}/5</td>
+              <td>
+                <span class="score-pill score-{{ r.risk_level | lower }}">{{ r.risk_score }}</span>
+              </td>
+              <td>
+                <span class="badge badge-risk-{{ r.risk_level | lower }}">{{ r.risk_level }}</span>
+              </td>
+              <td data-person="{{ r.owner }}">{{ r.owner }}</td>
+              <td>
+                <span class="badge badge-status-{{ r.status | lower | replace(' ', '') }}">{{ r.status }}</span>
+              </td>
+              <td>
+                {% if r.is_demo %}
+                  <span class="badge badge-demo" data-i18n="lbl_demo_data">Demo Data</span>
+                {% else %}
+                  <span class="badge badge-user-analysis" data-i18n="lbl_user_data">User Analysis</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('risk_details', risk_id=r.id) }}" class="btn btn-outline btn-xs" title="View details">
+                  <i class="fa-solid fa-arrow-right"></i>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="11" style="text-align: center; padding: 2.5rem 1rem;">
+              <div style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+                <i class="fa-solid fa-folder-open" style="font-size: 2rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;"></i>
+                <strong data-i18n="lbl_no_risks_found">No risks analyzed yet.</strong>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Add your first risk to start the analysis.</p>
+              </div>
+              <a href="{{ url_for('assessment_view') }}" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-plus"></i> <span data-i18n="btn_assess_new_threat">+ Analyze New Risk</span>
+              </a>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  window.loadDashboardCharts = function() {
+    fetch('/api/analytics-data')
+      .then(res => res.json())
+      .then(data => {
+        if (data.risk_distribution) {
+          ChartEngine.renderDistribution('riskDistributionChart', data.risk_distribution);
+        }
+        if (data.history_trend) {
+          ChartEngine.renderTrend('riskTrendChart', data.history_trend);
+        }
+        if (data.categories) {
+          ChartEngine.renderCategories('categoryBarChart', data.categories);
+        }
+      })
+      .catch(err => console.error("Failed to load dashboard charts:", err));
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    window.loadDashboardCharts();
+  });
+</script>
+{% endblock %}

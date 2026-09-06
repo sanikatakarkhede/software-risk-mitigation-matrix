@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header & Action Bar -->
+<div class="page-header">
+  <div class="page-title-group">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+      <a href="{{ url_for('risks_view') }}" class="btn btn-outline btn-sm" title="Back to Risk Register">
+        <i class="fa-solid fa-arrow-left"></i>
+      </a>
+      <span class="risk-id-tag" style="font-size: 0.95rem;">{{ risk.id }}</span>
+      <span class="badge badge-risk-{{ risk.risk_level | lower }}">{{ risk.risk_level }}</span>
+      <span class="badge badge-status-{{ risk.status | lower | replace(' ', '') }}">{{ risk.status }}</span>
+    </div>
+    <h1>{{ risk.name }}</h1>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-secondary" onclick="ModalManager.open('reassessMilestoneModal')">
+      <i class="fa-solid fa-arrows-to-dot"></i>
+      <span>Record Reassessment</span>
+    </button>
+    <button class="btn btn-primary" onclick="ModalManager.open('addMitigationModal')">
+      <i class="fa-solid fa-plus"></i>
+      <span>Add Mitigation Plan</span>
+    </button>
+  </div>
+</div>
+
+<!-- Risk Score Reduction Hero -->
+<div class="reduction-hero">
+  <div class="reduction-stat-item">
+    <span class="reduction-label">Initial Baseline Assessment</span>
+    <div class="reduction-number" style="color: var(--text-muted);">
+      {{ risk.initial_score }}
+    </div>
+    <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+      Prob {{ risk.initial_probability }} × Imp {{ risk.initial_impact }}
+    </span>
+  </div>
+
+  <div class="reduction-stat-item">
+    <span class="reduction-label">Current Mitigated Exposure</span>
+    <div class="reduction-number" style="color: {% if risk.risk_level == 'Critical' %}var(--risk-critical){% elif risk.risk_level == 'High' %}var(--risk-high){% elif risk.risk_level == 'Medium' %}var(--risk-medium){% else %}var(--risk-low){% endif %};">
+      {{ risk.risk_score }}
+    </div>
+    <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem;">
+      Prob {{ risk.probability }} × Imp {{ risk.impact }} ({{ risk.risk_level }})
+    </span>
+  </div>
+
+  <div class="reduction-stat-item">
+    <span class="reduction-label">Total Risk Reduction</span>
+    <div class="reduction-number" style="color: var(--accent);">
+      {{ reduction_pct }}%
+    </div>
+    <span class="badge badge-risk-low" style="margin-top: 0.35rem;">
+      <i class="fa-solid fa-arrow-trend-down"></i> -{{ (risk.initial_score - risk.risk_score) }} points mitigated
+    </span>
+  </div>
+</div>
+
+<!-- What Changed & Score Progression Card -->
+<div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 100%); border: 1px solid rgba(99,102,241,0.25);">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 0.25rem 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(99,102,241,0.18); color: #818cf8; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.06em;">What Changed?</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">•</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Updated by <strong data-person="{{ what_changed.updated_by | default(risk.owner) }}">{{ what_changed.updated_by | default(risk.owner) }}</strong> on {{ what_changed.updated_date | default(risk.date_identified) }}</span>
+        </div>
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">
+          {{ what_changed.text | default('Risk status actively monitored under governance framework.') }}
+        </div>
+        {% if what_changed.reason %}
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; font-style: italic;">
+            "{{ what_changed.reason }}"
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Score Progression Sequence -->
+    <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--bg-card); padding: 0.65rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;" data-i18n="lbl_score_history">Score History:</span>
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        {% if score_sequence %}
+          {% for s in score_sequence %}
+            <span class="badge" style="font-size: 0.82rem; font-weight: 700; background: {% if s >= 17 %}rgba(239,68,68,0.2); color: #ef4444; border-color: rgba(239,68,68,0.3);{% elif s >= 10 %}rgba(249,115,22,0.2); color: #f97316; border-color: rgba(249,115,22,0.3);{% elif s >= 5 %}rgba(245,158,11,0.2); color: #f59e0b; border-color: rgba(245,158,11,0.3);{% else %}rgba(16,185,129,0.2); color: #10b981; border-color: rgba(16,185,129,0.3);{% endif %}">
+              {{ s }}
+            </span>
+            {% if not loop.last %}
+              <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem; color: var(--text-muted);"></i>
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <span class="badge badge-risk-{{ risk.risk_level | lower }}">{{ risk.risk_score }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2-Column Deep Dive Layout -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+  <!-- Left Column: Threat Profile & Timeline -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Profile Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-circle-info" style="color: var(--primary);"></i>
+          <span>Threat Scope & Governance Details</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.6;">
+          {{ risk.description | default('No detailed description provided for this software risk entry.') }}
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;" data-i18n="lbl_category">Category</span>
+            <div style="margin-top: 0.25rem;">
+              <span class="badge" style="background: {{ risk.category_color }}22; color: {{ risk.category_color }};">
+                <i class="fa-solid {{ risk.category_icon }}"></i> {{ risk.category_name }}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Identified Date</span>
+            <div style="font-weight: 600; font-family: var(--font-mono); margin-top: 0.25rem;">
+              {{ risk.date_identified }}
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;" data-i18n="lbl_owner">Responsible Owner</span>
+            <div style="font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              <i class="fa-solid fa-user-shield" style="color: var(--primary); margin-right: 0.35rem;"></i> <span data-person="{{ risk.owner }}">{{ risk.owner }}</span>
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Department</span>
+            <div style="font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              {{ risk.department }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical Progression Chart -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-chart-line" style="color: var(--risk-low);"></i>
+          <span>Mitigation Progression Curve</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrapper" style="height: 220px;">
+          <canvas id="singleRiskHistoryChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline Log Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-clock-rotate-left" style="color: var(--secondary);"></i>
+          <span>Audit History & Reassessment Log</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="timeline">
+          {% for h in history %}
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="score-pill score-{{ h.risk_level | lower }}" style="width: 24px; height: 24px; font-size: 0.75rem;">{{ h.risk_score }}</span>
+                    <span class="badge badge-risk-{{ h.risk_level | lower }}" style="font-size: 0.7rem;">{{ h.risk_level }}</span>
+                  </div>
+                  <span class="timeline-date">{{ h.recorded_date }}</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.35rem;">
+                  {{ h.notes }}
+                </p>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Assessed by: <strong>{{ h.recorded_by }}</strong> (Prob: {{ h.probability }}, Imp: {{ h.impact }})
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Mitigation Action Plans -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fa-solid fa-list-check" style="color: var(--accent);"></i>
+          <span>Active Mitigation Action Plans ({{ mitigations | length }})</span>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="ModalManager.open('addMitigationModal')">
+          <i class="fa-solid fa-plus"></i>
+          <span>New Plan</span>
+        </button>
+      </div>
+      <div class="card-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        {% if mitigations %}
+          {% for m in mitigations %}
+            <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.35rem;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem;">
+                <div>
+                  <h4 style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+                    {{ m.strategy_name }}
+                  </h4>
+                  <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                    <i class="fa-solid fa-user-check"></i> Assignee: <strong>{{ m.responsible_person }}</strong> | Target: <strong>{{ m.target_date }}</strong>
+                  </div>
+                </div>
+                <span class="badge badge-status-{{ m.status | lower | replace(' ', '') }}">{{ m.status }}</span>
+              </div>
+
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.5;">
+                {{ m.action_steps | default(m.notes or 'No specific action steps provided.') }}
+              </p>
+
+              <!-- Progress Controller -->
+              <div class="progress-container" style="margin-bottom: 1rem;">
+                <div class="progress-header">
+                  <span>Execution Progress</span>
+                  <span style="font-family: var(--font-mono); font-weight: 700;" id="progText_{{ m.id }}">{{ m.progress_pct }}%</span>
+                </div>
+                <div class="progress-bar-bg" style="height: 10px;">
+                  <div class="progress-bar-fill {% if m.progress_pct == 100 %}fill-success{% endif %}" id="progFill_{{ m.id }}" style="width: {{ m.progress_pct }}%;"></div>
+                </div>
+              </div>
+
+              <!-- Quick Progress Slider & Update -->
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: var(--bg-surface); padding: 0.65rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Adjust Progress:</span>
+                <input type="range" min="0" max="100" step="5" value="{{ m.progress_pct }}" style="flex: 1; cursor: pointer;" oninput="updateLocalProgressDisplay({{ m.id }}, this.value)" onchange="saveMitigationProgress({{ m.id }}, this.value)">
+                <button class="btn btn-outline btn-sm" onclick="saveMitigationProgress({{ m.id }}, 100)" title="Mark 100% Completed">
+                  <i class="fa-solid fa-check"></i> Complete
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <i class="fa-solid fa-clipboard-list empty-state-icon"></i>
+            <div class="empty-state-title">No Mitigation Plans Yet</div>
+            <p>Define an architectural or operational mitigation plan to remediate this threat.</p>
+            <button class="btn btn-primary btn-sm" style="margin-top: 1rem;" onclick="ModalManager.open('addMitigationModal')">
+              <i class="fa-solid fa-plus"></i> Create First Mitigation Plan
+            </button>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Record Reassessment Milestone -->
+<div class="modal-backdrop" id="reassessMilestoneModal">
+  <div class="modal-window" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="fa-solid fa-arrows-to-dot" style="color: var(--primary);"></i>
+        <span>Record Reassessment Milestone</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('reassessMilestoneModal')">&times;</button>
+    </div>
+    <form onsubmit="handleMilestoneSubmit(event)">
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label">New Assessed Probability (1 - 5)</label>
+          <input type="range" id="detailProb" min="1" max="5" value="{{ risk.probability }}" class="form-control" style="cursor: pointer;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+            <span>1 (Rare)</span><span>2</span><span>3</span><span>4</span><span>5 (Certain)</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label">New Assessed Impact (1 - 5)</label>
+          <input type="range" id="detailImp" min="1" max="5" value="{{ risk.impact }}" class="form-control" style="cursor: pointer;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+            <span>1 (V.Low)</span><span>2</span><span>3</span><span>4</span><span>5 (Critical)</span>
+          </div>
+        </div>
+
+        <!-- Live Score -->
+        <div class="live-calc-box" style="margin-bottom: 1.25rem;">
+          <div class="calc-formula">
+            <span id="detailProbLabel">Prob: {{ risk.probability }}</span>
+            <span>×</span>
+            <span id="detailImpLabel">Impact: {{ risk.impact }}</span>
+          </div>
+          <div class="calc-result-badge">
+            <span class="calc-score-display" id="detailScoreVal">{{ risk.risk_score }}</span>
+            <span class="badge badge-risk-{{ risk.risk_level | lower }}" id="detailLevelBadge">{{ risk.risk_level }}</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="detailMilestoneNotes">Reassessment & Audit Note *</label>
+          <textarea id="detailMilestoneNotes" class="form-control" rows="3" placeholder="Describe the validation test results, code audit, or deployment milestone that justified this score change..." required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="ModalManager.close('reassessMilestoneModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Milestone</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Add Mitigation Plan -->
+<div class="modal-backdrop" id="addMitigationModal">
+  <div class="modal-window" style="max-width: 620px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="fa-solid fa-list-check" style="color: var(--accent);"></i>
+        <span>Add Mitigation Action Plan</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('addMitigationModal')">&times;</button>
+    </div>
+    <form onsubmit="handleCreateMitigationPlan(event)">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group col-span-2">
+            <label class="form-label" for="mitStrategyName">Mitigation Strategy Title *</label>
+            <input type="text" id="mitStrategyName" class="form-control" placeholder="e.g. Implement Circuit Breaker & Fallback Caching" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="mitAssignee">Responsible Engineer / Lead *</label>
+            <input type="text" id="mitAssignee" class="form-control" value="{{ risk.owner }}" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="mitTargetDate">Target Completion Date</label>
+            <input type="date" id="mitTargetDate" class="form-control">
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label" for="mitActionSteps">Action Steps & Implementation Details</label>
+            <textarea id="mitActionSteps" class="form-control" rows="3" placeholder="1. Set up Redis sentinel&#10;2. Configure retry exponential backoff&#10;3. Conduct load testing"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="ModalManager.close('addMitigationModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create Plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const riskId = "{{ risk.id }}";
+  const historyData = {{ history | tojson }};
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Render History Chart
+    if (historyData && historyData.length > 0) {
+      ChartEngine.renderSingleRiskHistory('singleRiskHistoryChart', historyData);
+    }
+
+    // Live calc for milestone modal
+    const p = document.getElementById('detailProb');
+    const i = document.getElementById('detailImp');
+    function updateDetailCalc() {
+      const prob = parseInt(p.value, 10);
+      const imp = parseInt(i.value, 10);
+      const score = prob * imp;
+      document.getElementById('detailProbLabel').innerText = `Prob: ${prob}`;
+      document.getElementById('detailImpLabel').innerText = `Impact: ${imp}`;
+      document.getElementById('detailScoreVal').innerText = score;
+
+      const badge = document.getElementById('detailLevelBadge');
+      let level = 'Low';
+      let badgeClass = 'badge-risk-low';
+      if (score >= 17) { level = 'Critical'; badgeClass = 'badge-risk-critical'; }
+      else if (score >= 10) { level = 'High'; badgeClass = 'badge-risk-high'; }
+      else if (score >= 5) { level = 'Medium'; badgeClass = 'badge-risk-medium'; }
+
+      badge.innerText = level;
+      badge.className = `badge ${badgeClass}`;
+    }
+    p.addEventListener('input', updateDetailCalc);
+    i.addEventListener('input', updateDetailCalc);
+  });
+
+  function updateLocalProgressDisplay(id, val) {
+    const textEl = document.getElementById(`progText_${id}`);
+    const fillEl = document.getElementById(`progFill_${id}`);
+    if (textEl) textEl.innerText = `${val}%`;
+    if (fillEl) fillEl.style.width = `${val}%`;
+  }
+
+  function saveMitigationProgress(planId, val) {
+    fetch(`/api/mitigations/${planId}/progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ progress_pct: parseInt(val, 10) })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Progress Saved', `Plan updated to ${data.progress_pct}% (${data.status})`, 'success');
+        setTimeout(() => window.location.reload(), 600);
+      }
+    });
+  }
+
+  function handleMilestoneSubmit(e) {
+    e.preventDefault();
+    const prob = parseInt(document.getElementById('detailProb').value, 10);
+    const imp = parseInt(document.getElementById('detailImp').value, 10);
+    const notes = document.getElementById('detailMilestoneNotes').value.trim();
+
+    fetch(`/api/risks/${riskId}/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        probability: prob,
+        impact: imp,
+        notes: notes
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Milestone Recorded', `Risk updated to Score ${data.risk_score}`, 'success');
+        ModalManager.close('reassessMilestoneModal');
+        setTimeout(() => window.location.reload(), 700);
+      } else {
+        Toast.show('Error', data.error, 'error');
+      }
+    });
+  }
+
+  function handleCreateMitigationPlan(e) {
+    e.preventDefault();
+    const payload = {
+      risk_id: riskId,
+      strategy_name: document.getElementById('mitStrategyName').value.trim(),
+      responsible_person: document.getElementById('mitAssignee').value.trim(),
+      target_date: document.getElementById('mitTargetDate').value,
+      action_steps: document.getElementById('mitActionSteps').value.trim(),
+      status: 'In Progress',
+      progress_pct: 0
+    };
+
+    fetch('/api/mitigations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Created', 'Mitigation plan created successfully', 'success');
+        ModalManager.close('addMitigationModal');
+        setTimeout(() => window.location.reload(), 600);
+      } else {
+        Toast.show('Error', data.error, 'error');
+      }
+    });
+  }
+</script>
+{% endblock %}

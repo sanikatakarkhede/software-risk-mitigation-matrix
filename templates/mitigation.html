@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_mitigation">Mitigation Strategies & Action Plans</h1>
+    <p class="page-subtitle">Track implementation status, engineering owners, and completion velocity for risk treatment programs.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('export_csv', type='mitigations') }}" class="btn btn-secondary" download>
+      <i class="fa-solid fa-file-arrow-down"></i>
+      <span data-i18n="btn_export_csv">Export Plans (CSV)</span>
+    </a>
+    <button class="btn btn-primary" onclick="ModalManager.open('newMitigationModal')">
+      <i class="fa-solid fa-plus"></i>
+      <span>New Mitigation Plan</span>
+    </button>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <input type="text" id="mitigationSearch" class="form-control" placeholder="Filter by strategy, owner, risk ID..." data-i18n-placeholder="search_placeholder" style="min-width: 280px;" oninput="filterMitigationCards()">
+
+    <select id="mitigationStatusFilter" class="filter-select" onchange="filterMitigationCards()">
+      <option value="">All Statuses</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Completed">Completed</option>
+      <option value="Planned">Planned</option>
+    </select>
+  </div>
+
+  <div style="font-size: 0.85rem; color: var(--text-muted);">
+    Total Action Plans: <strong>{{ mitigations | length }}</strong>
+  </div>
+</div>
+
+<!-- Mitigation Plans Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem;" id="mitigationGrid">
+  {% if mitigations %}
+    {% for m in mitigations %}
+      <div class="card mit-card" data-status="{{ m.status }}" data-text="{{ m.strategy_name }} {{ m.responsible_person }} {{ m.risk_id }} {{ m.risk_name }}" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="card-header" style="background: var(--bg-surface-elevated); padding: 1rem 1.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <a href="{{ url_for('risk_details', risk_id=m.risk_id) }}" class="risk-id-tag">{{ m.risk_id }}</a>
+            <span class="score-pill score-{{ m.risk_level | lower }}" style="width: 24px; height: 24px; font-size: 0.72rem;" title="Risk Score">{{ m.risk_score }}</span>
+            <span class="badge" style="background: {{ m.category_color }}22; color: {{ m.category_color }}; font-size: 0.7rem;">
+              {{ m.category_name }}
+            </span>
+            {% if m.is_demo %}
+              <span class="badge badge-demo" data-i18n="lbl_demo_data">Demo Data</span>
+            {% else %}
+              <span class="badge badge-user-analysis" data-i18n="lbl_user_data">User Analysis</span>
+            {% endif %}
+          </div>
+          <span class="badge badge-status-{{ m.status | lower | replace(' ', '') }}" id="badgeStatus_{{ m.id }}">{{ m.status }}</span>
+        </div>
+
+        <div class="card-body" style="padding: 1.25rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0;">
+              {{ m.strategy_name }}
+            </h3>
+            <span class="badge badge-risk-{{ m.risk_level | lower }}" style="font-size: 0.72rem;">{{ m.risk_level }}</span>
+          </div>
+
+          <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+            Targeted Threat: <a href="{{ url_for('risk_details', risk_id=m.risk_id) }}" style="color: var(--text-secondary); font-weight: 600;">{{ m.risk_name }}</a>
+          </div>
+
+          <!-- Dynamic Risk Reduction Result Indicator -->
+          <div style="background: var(--bg-surface); padding: 0.6rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+            <div style="font-size: 0.78rem; color: var(--text-muted);">
+              <span data-i18n="lbl_reduction">Risk Reduction</span>
+              <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_reduction">Shows how much the risk has decreased after mitigation.</span></span>:
+              <strong style="color: var(--text-primary); font-family: var(--font-mono); margin-left: 0.25rem;">{{ m.initial_score | default(1) }} &rarr; {{ m.risk_score | default(0) }}</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span class="badge positive" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">
+                <i class="fa-solid fa-arrow-trend-down"></i> -{{ m.reduction_pct | default(0) }}%
+              </span>
+            </div>
+          </div>
+
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.25rem; min-height: 48px;">
+            {{ m.action_steps | default(m.notes or 'Standard mitigation action plan execution.') }}
+          </p>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+            <div><i class="fa-solid fa-user-gear" style="color: var(--primary);"></i> <strong data-person="{{ m.responsible_person }}">{{ m.responsible_person }}</strong></div>
+            <div><i class="fa-solid fa-calendar-day"></i> Due: <strong>{{ m.target_date }}</strong></div>
+          </div>
+
+          <!-- Progress Bar & Slider -->
+          <div class="progress-container" style="margin-bottom: 1rem;">
+            <div class="progress-header">
+              <span data-i18n="lbl_progress">Execution Progress</span>
+              <span style="font-family: var(--font-mono); font-weight: 700;" id="progLabel_{{ m.id }}">{{ m.progress_pct }}%</span>
+            </div>
+            <div class="progress-bar-bg" style="height: 8px;">
+              <div class="progress-bar-fill {% if m.progress_pct == 100 %}fill-success{% endif %}" id="progBar_{{ m.id }}" style="width: {{ m.progress_pct }}%;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <input type="range" min="0" max="100" step="5" value="{{ m.progress_pct }}" style="flex: 1; cursor: pointer;" oninput="updateLiveProgressDisplay({{ m.id }}, this.value)" onchange="persistProgress({{ m.id }}, this.value)">
+            <button class="btn btn-outline btn-sm" onclick="persistProgress({{ m.id }}, 100)" title="Mark 100% Done">
+              <i class="fa-solid fa-check"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div style="grid-column: 1 / -1;">
+      <div class="empty-state">
+        <i class="fa-solid fa-clipboard-check empty-state-icon" style="color: var(--risk-low);"></i>
+        <div class="empty-state-title" data-i18n="lbl_no_mitigations">No Mitigation Plans Found</div>
+        <p>Create treatment action plans to reduce probability and impact scores across your software stack.</p>
+        <button class="btn btn-primary btn-sm" style="margin-top: 1rem;" onclick="ModalManager.open('newMitigationModal')">
+          <i class="fa-solid fa-plus"></i> Create Action Plan
+        </button>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal: New Mitigation Action Plan -->
+<div class="modal-backdrop" id="newMitigationModal">
+  <div class="modal-window" style="max-width: 640px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="fa-solid fa-list-check" style="color: var(--primary);"></i>
+        <span>Create Mitigation Strategy & Plan</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('newMitigationModal')">&times;</button>
+    </div>
+    <form onsubmit="handleNewMitigationSubmit(event)">
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group col-span-2">
+            <label class="form-label" for="mitRiskIdSelect">Select Software Threat / Risk *</label>
+            <select id="mitRiskIdSelect" class="form-control" required>
+              {% for r in risks_list %}
+                <option value="{{ r.id }}">[{{ r.id }}] {{ r.name }} (Score: {{ r.risk_score }}, {{ r.risk_level }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label" for="mitPlanTitle">Mitigation Strategy Name *</label>
+            <input type="text" id="mitPlanTitle" class="form-control" placeholder="e.g. Implement Zero-Trust mTLS & Automated Certificate Rotation" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="mitPlanOwner">Lead Responsible Engineer *</label>
+            <input type="text" id="mitPlanOwner" class="form-control" value="SRE & Platform Team" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="mitPlanTarget">Target Date</label>
+            <input type="date" id="mitPlanTarget" class="form-control">
+          </div>
+
+          <div class="form-group col-span-2">
+            <label class="form-label" for="mitPlanSteps">Action Steps & Implementation Details</label>
+            <textarea id="mitPlanSteps" class="form-control" rows="3" placeholder="Step 1: Install Cert-Manager on Kubernetes&#10;Step 2: Enforce strict peer verification&#10;Step 3: Conduct penetration test"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="ModalManager.close('newMitigationModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Save Action Plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function updateLiveProgressDisplay(id, val) {
+    const label = document.getElementById(`progLabel_${id}`);
+    const bar = document.getElementById(`progBar_${id}`);
+    if (label) label.innerText = `${val}%`;
+    if (bar) {
+      bar.style.width = `${val}%`;
+      if (parseInt(val, 10) === 100) bar.classList.add('fill-success');
+      else bar.classList.remove('fill-success');
+    }
+  }
+
+  function persistProgress(planId, val) {
+    fetch(`/api/mitigations/${planId}/progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ progress_pct: parseInt(val, 10) })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Progress Updated', `Plan progress set to ${data.progress_pct}% (${data.status})`, 'success');
+        const badge = document.getElementById(`badgeStatus_${planId}`);
+        if (badge) {
+          badge.innerText = data.status;
+          badge.className = `badge badge-status-${data.status.toLowerCase().replace(' ', '')}`;
+        }
+        updateLiveProgressDisplay(planId, data.progress_pct);
+      }
+    });
+  }
+
+  function filterMitigationCards() {
+    const q = document.getElementById('mitigationSearch').value.toLowerCase().trim();
+    const st = document.getElementById('mitigationStatusFilter').value;
+
+    document.querySelectorAll('.mit-card').forEach(card => {
+      const text = (card.getAttribute('data-text') || '').toLowerCase();
+      const status = card.getAttribute('data-status') || '';
+
+      const matchesText = !q || text.includes(q);
+      const matchesStatus = !st || status === st;
+
+      card.style.display = (matchesText && matchesStatus) ? 'flex' : 'none';
+    });
+  }
+
+  function handleNewMitigationSubmit(e) {
+    e.preventDefault();
+    const payload = {
+      risk_id: document.getElementById('mitRiskIdSelect').value,
+      strategy_name: document.getElementById('mitPlanTitle').value.trim(),
+      responsible_person: document.getElementById('mitPlanOwner').value.trim(),
+      target_date: document.getElementById('mitPlanTarget').value,
+      action_steps: document.getElementById('mitPlanSteps').value.trim(),
+      status: 'In Progress',
+      progress_pct: 0
+    };
+
+    fetch('/api/mitigations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Success', 'New mitigation plan added!', 'success');
+        ModalManager.close('newMitigationModal');
+        setTimeout(() => window.location.reload(), 600);
+      } else {
+        Toast.show('Error', data.error, 'error');
+      }
+    });
+  }
+</script>
+{% endblock %}

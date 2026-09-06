@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account | RiskManager Governance Platform</title>
+  <meta name="description" content="Create a new account on RiskManager Software Risk Mitigation Platform for project risk assessment and governance.">
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232563eb'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Theme Preload Script (Anti-Flicker) -->
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('srmm_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-mesh"></div>
+
+  <!-- Top-Right Floating Quick Settings (No login required) -->
+  <div style="position: fixed; top: 1.25rem; right: 1.5rem; z-index: 100; display: flex; align-items: center; gap: 0.75rem;">
+    <!-- Region Switcher -->
+    <button type="button" class="btn btn-secondary btn-sm" onclick="QuickSettingsManager.setRegion(RegionEngine.currentRegion === 'indian' ? 'intl' : 'indian')" title="Switch Region / Currency" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; backdrop-filter: blur(12px);">
+      <span id="regRegionLabel">🇮🇳 Indian (₹)</span>
+    </button>
+
+    <!-- Language Switcher -->
+    <button type="button" class="btn btn-secondary btn-sm" onclick="QuickSettingsManager.setLanguage(I18nEngine.currentLang === 'en' ? 'hi' : 'en')" title="Switch Language / भाषा" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; backdrop-filter: blur(12px);">
+      <span id="regLangLabel">English</span>
+    </button>
+
+    <!-- Theme Switcher -->
+    <button type="button" class="btn btn-secondary btn-sm" onclick="ThemeManager.toggle()" title="Toggle Dark/Light Theme" style="font-size: 0.78rem; padding: 0.35rem 0.65rem; backdrop-filter: blur(12px);">
+      <i class="fa-solid fa-sun" id="regThemeIcon"></i>
+    </button>
+  </div>
+
+  <div class="login-card" style="max-width: 520px;">
+    <div class="login-header">
+      <div class="login-logo" style="background: var(--primary);">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h1 style="font-size: 1.75rem; font-family: var(--font-heading); margin-bottom: 0.25rem;">Create Account</h1>
+      <p style="color: var(--text-muted); font-size: 0.88rem;">Join RiskManager to assess, track and govern software risks</p>
+    </div>
+
+    <!-- Flash Alerts -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div style="margin-bottom: 1.5rem;">
+          {% for category, msg in messages %}
+            <div class="toast toast-{{ 'error' if category == 'error' else ('success' if category == 'success' else 'info') }} show" style="transform: none; position: static; width: 100%; margin-bottom: 0.5rem;">
+              <div class="toast-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div class="toast-content">
+                <div class="toast-title">{{ category | capitalize }}</div>
+                <div class="toast-message">{{ msg }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('register') }}">
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="full_name">Full Name <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. Rahul Patil" required autofocus>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="email">Work Email Address <span style="color: var(--danger);">*</span></label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="e.g. rahul.patil@company.io" required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="role">Role <span style="color: var(--danger);">*</span></label>
+          <select id="role" name="role" class="form-control" required>
+            <option value="Risk Manager" selected>Risk Manager</option>
+            <option value="Admin">Admin</option>
+            <option value="Developer">Developer</option>
+            <option value="Auditor">Auditor</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="department">Department</label>
+          <select id="department" name="department" class="form-control">
+            <option value="Risk & Governance" selected>Risk & Governance</option>
+            <option value="Engineering Core">Engineering Core</option>
+            <option value="Security">Security</option>
+            <option value="QA & Compliance">QA & Compliance</option>
+            <option value="Executive Suite">Executive Suite</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="form-group">
+          <label class="form-label" for="password">Password <span style="color: var(--danger);">*</span></label>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Min 6 characters" minlength="6" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="confirm_password">Confirm Password <span style="color: var(--danger);">*</span></label>
+          <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter password" minlength="6" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+        <i class="fa-solid fa-user-plus"></i>
+        <span>Complete Registration</span>
+      </button>
+
+      <div style="text-align: center; margin-top: 1.25rem;">
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Already have an account? </span>
+        <a href="{{ url_for('login') }}" style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">Sign In</a>
+      </div>
+    </form>
+
+    <!-- 1-Click Demo Role Profiles -->
+    <div class="demo-login-box" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; text-align: center;">
+        ⚡ Instant 1-Click Demo Profiles
+      </div>
+      <div class="demo-buttons-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loginAsDemo('admin')" style="justify-content: flex-start; padding: 0.5rem 0.75rem;">
+          <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(37,99,235,0.2); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">RP</div>
+          <div style="text-align: left; line-height: 1.2;">
+            <div style="font-size: 0.8rem; font-weight: 600;">Rahul Patil</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Admin</div>
+          </div>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loginAsDemo('manager')" style="justify-content: flex-start; padding: 0.5rem 0.75rem;">
+          <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(139,92,246,0.2); color: #a78bfa; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">PS</div>
+          <div style="text-align: left; line-height: 1.2;">
+            <div style="font-size: 0.8rem; font-weight: 600;">Priya Sharma</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Risk Manager</div>
+          </div>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loginAsDemo('dev')" style="justify-content: flex-start; padding: 0.5rem 0.75rem;">
+          <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(6,182,212,0.2); color: #22d3ee; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">AK</div>
+          <div style="text-align: left; line-height: 1.2;">
+            <div style="font-size: 0.8rem; font-weight: 600;">Amit Kulkarni</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Developer</div>
+          </div>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="loginAsDemo('auditor')" style="justify-content: flex-start; padding: 0.5rem 0.75rem;">
+          <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(236,72,153,0.2); color: #f472b6; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">SD</div>
+          <div style="text-align: left; line-height: 1.2;">
+            <div style="font-size: 0.8rem; font-weight: 600;">Sneha Deshmukh</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Auditor</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script>
+    function updateRegisterCustomizationUI() {
+      const reg = localStorage.getItem('srmm_region') || 'indian';
+      const lang = localStorage.getItem('srmm_lang') || 'en';
+      const theme = localStorage.getItem('srmm_theme') || 'dark';
+
+      const regEl = document.getElementById('regRegionLabel');
+      if (regEl) regEl.innerText = reg === 'indian' ? '🇮🇳 Indian (₹)' : '🌐 Intl ($)';
+
+      const langEl = document.getElementById('regLangLabel');
+      if (langEl) langEl.innerText = lang === 'en' ? 'English' : 'हिंदी';
+
+      const themeIcon = document.getElementById('regThemeIcon');
+      if (themeIcon) {
+        themeIcon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateRegisterCustomizationUI();
+      window.addEventListener('storage', updateRegisterCustomizationUI);
+    });
+  </script>
+</body>
+</html>

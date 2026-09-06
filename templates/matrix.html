@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-group">
+    <h1 data-i18n="nav_matrix">5×5 Risk Assessment Matrix</h1>
+    <p class="page-subtitle">Visual threat prioritization heatmap mapping probability likelihood against organizational impact severity.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-secondary" onclick="loadMatrixGrid()" title="Refresh Matrix from Database">
+      <i class="fa-solid fa-arrows-rotate"></i>
+      <span>Refresh Grid</span>
+    </button>
+    <a href="{{ url_for('export_csv', type='risks') }}" class="btn btn-secondary" download title="Export Risk Data (CSV)">
+      <i class="fa-solid fa-download"></i>
+      <span data-i18n="btn_export_csv">Export Matrix</span>
+    </a>
+    <button class="btn btn-primary" onclick="openMatrixAddRiskModal()" title="Register New Risk">
+      <i class="fa-solid fa-plus"></i>
+      <span data-i18n="btn_add_risk">Register Risk</span>
+    </button>
+  </div>
+</div>
+
+<!-- Short Explanation Guidance Banner -->
+<div class="matrix-guidance-banner" style="margin-bottom: 1.25rem;">
+  <i class="fa-solid fa-circle-info"></i>
+  <span>Use the matrix to identify how serious each software risk is based on its probability and impact.</span>
+</div>
+
+<!-- Matrix Legend & Filter Bar -->
+<div class="matrix-legend-bar" style="margin-bottom: 1.5rem;">
+  <div class="legend-chips">
+    <div class="legend-chip chip-critical">
+      <div class="legend-color-box legend-color-critical" style="width: 12px; height: 12px; border-radius: 3px;"></div>
+      <span><strong data-i18n="sev_critical">Critical</strong> (17–25): Red</span>
+    </div>
+    <div class="legend-chip chip-high">
+      <div class="legend-color-box legend-color-high" style="width: 12px; height: 12px; border-radius: 3px;"></div>
+      <span><strong data-i18n="sev_high">High</strong> (10–16): Orange</span>
+    </div>
+    <div class="legend-chip chip-medium">
+      <div class="legend-color-box legend-color-medium" style="width: 12px; height: 12px; border-radius: 3px;"></div>
+      <span><strong data-i18n="sev_medium">Medium</strong> (5–9): Yellow/Amber</span>
+    </div>
+    <div class="legend-chip chip-low">
+      <div class="legend-color-box legend-color-low" style="width: 12px; height: 12px; border-radius: 3px;"></div>
+      <span><strong data-i18n="sev_low">Low</strong> (1–4): Green</span>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <select id="matrixCategoryFilter" class="filter-select" onchange="loadMatrixGrid(false)" style="min-width: 180px;">
+      <option value="">All Categories</option>
+      {% for cat in all_categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-outline btn-sm" id="clearFilterBtn" onclick="clearMatrixFilter()" title="Clear Active Coordinate Selection">
+      <i class="fa-solid fa-filter-circle-xmark"></i>
+      <span>Clear Matrix Filter</span>
+    </button>
+  </div>
+</div>
+
+<!-- Responsive Side-by-Side Matrix + Inspector Layout -->
+<div class="matrix-page-layout">
+  <!-- Left Column: 5x5 Matrix Workspace Card -->
+  <div class="card matrix-main-card" style="padding: 1.25rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.85rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <i class="fa-solid fa-table-cells-large" style="color: var(--primary);"></i>
+        <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">5×5 Probability × Impact Heatmap</h3>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted);" id="matrixSummaryBadge">
+        Click any cell to inspect risks
+      </div>
+    </div>
+
+    <div class="matrix-workspace" style="overflow-x: auto;">
+      <!-- Y-Axis (Impact) -->
+      <div class="matrix-y-axis">
+        <div class="axis-vertical-label">
+          <span data-i18n="lbl_impact">IMPACT</span>
+          <span class="help-icon" tabindex="0">?<span class="tooltip-text">How severe the negative consequences would be if the risk occurs (1 = Very Low to 5 = Very High).</span></span>
+        </div>
+        <div class="axis-step-y">
+          <strong>5</strong>
+          <span>Very High</span>
+        </div>
+        <div class="axis-step-y">
+          <strong>4</strong>
+          <span>High</span>
+        </div>
+        <div class="axis-step-y">
+          <strong>3</strong>
+          <span>Medium</span>
+        </div>
+        <div class="axis-step-y">
+          <strong>2</strong>
+          <span>Low</span>
+        </div>
+        <div class="axis-step-y">
+          <strong>1</strong>
+          <span>Very Low</span>
+        </div>
+      </div>
+
+      <!-- 5x5 Grid Cells (Populated via JS) -->
+      <div class="matrix-grid" id="matrixGridContainer">
+        <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 1rem; color: var(--text-muted);">
+          <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary);"></i>
+          <p style="margin-top: 1rem; font-size: 0.9rem;">Loading live 5×5 risk assessment matrix...</p>
+        </div>
+      </div>
+
+      <!-- X-Axis (Probability) -->
+      <div class="matrix-x-axis">
+        <div class="axis-step-x">
+          <strong>1</strong>
+          <span>Very Low</span>
+        </div>
+        <div class="axis-step-x">
+          <strong>2</strong>
+          <span>Low</span>
+        </div>
+        <div class="axis-step-x">
+          <strong>3</strong>
+          <span>Medium</span>
+        </div>
+        <div class="axis-step-x">
+          <strong>4</strong>
+          <span>High</span>
+        </div>
+        <div class="axis-step-x">
+          <strong>5</strong>
+          <span>Very High</span>
+        </div>
+        <div class="axis-horizontal-label">
+          <span data-i18n="lbl_likelihood">PROBABILITY</span>
+          <span class="help-icon" tabindex="0">?<span class="tooltip-text">The estimated chance or likelihood of the software risk occurring (1 = Very Low to 5 = Very High).</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Matrix Cell Inspector Panel -->
+  <div class="cell-inspector-panel" id="cellInspectorPanel">
+    <!-- Inspector Header -->
+    <div class="inspector-header">
+      <div class="inspector-title-group">
+        <i class="fa-solid fa-magnifying-glass-chart" style="color: var(--primary); font-size: 1.15rem;"></i>
+        <div>
+          <h3 class="inspector-title">Matrix Cell Inspector</h3>
+        </div>
+      </div>
+      <span class="inspector-coordinate-tag" id="inspectorCoordBadge">Impact 5 × Prob 5</span>
+    </div>
+
+    <!-- Inspector KPI Metrics Bar -->
+    <div class="inspector-kpi-bar">
+      <div class="inspector-kpi-item">
+        <span class="inspector-kpi-label">Selected Score</span>
+        <span class="inspector-score-pill" id="inspectorScoreVal" style="color: var(--risk-critical);">25</span>
+      </div>
+      <div class="inspector-kpi-item">
+        <span class="inspector-kpi-label">Probability</span>
+        <span class="inspector-kpi-val" id="inspectorProbVal">5 - Very High</span>
+      </div>
+      <div class="inspector-kpi-item">
+        <span class="inspector-kpi-label">Impact</span>
+        <span class="inspector-kpi-val" id="inspectorImpVal">5 - Very High</span>
+      </div>
+      <div class="inspector-kpi-item">
+        <span class="inspector-kpi-label">Severity</span>
+        <span id="inspectorSevBadge" class="badge badge-risk-critical" style="font-size: 0.75rem; width: fit-content;">Critical</span>
+      </div>
+      <div class="inspector-kpi-item">
+        <span class="inspector-kpi-label">Risks in Cell</span>
+        <span class="inspector-kpi-val" id="inspectorCountVal">0 Risks</span>
+      </div>
+    </div>
+
+    <!-- Inspector Body (List of matching risks) -->
+    <div class="inspector-body" id="inspectorBodyContainer">
+      <div id="inspectorRisksList" class="inspector-risks-list">
+        <!-- Rendered dynamically via JavaScript -->
+      </div>
+    </div>
+
+    <!-- Inspector Footer / Action Bar -->
+    <div class="inspector-footer" id="inspectorFooter">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="clearMatrixFilter()">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>Clear Matrix Filter</span>
+      </button>
+      <a href="#" id="inspectorRegisterLink" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-table-list"></i>
+        <span>View in Risk Register</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Quick Reassess Probability & Impact -->
+<div class="modal-backdrop" id="reassessModal">
+  <div class="modal-window" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">
+        <i class="fa-solid fa-arrows-to-dot" style="color: var(--accent);"></i>
+        <span>Reassess Risk Position</span>
+      </h3>
+      <button class="modal-close-btn" onclick="ModalManager.close('reassessModal')">&times;</button>
+    </div>
+    <form id="reassessForm" onsubmit="handleReassessSubmit(event)">
+      <div class="modal-body">
+        <input type="hidden" id="reassessRiskId">
+        <div style="margin-bottom: 1.25rem;">
+          <h4 id="reassessRiskTitle" style="font-size: 1rem; color: var(--text-primary); margin-bottom: 0.35rem;"></h4>
+          <span id="reassessRiskIdBadge" class="risk-id-tag"></span>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="reassessProb">Probability (1 = Very Low, 5 = Very High)</label>
+          <input type="range" id="reassessProb" min="1" max="5" class="form-control" style="cursor: pointer;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+            <span>1 (Very Low)</span>
+            <span>2 (Low)</span>
+            <span>3 (Medium)</span>
+            <span>4 (High)</span>
+            <span>5 (Very High)</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="reassessImp">Impact Severity (1 = Very Low, 5 = Very High)</label>
+          <input type="range" id="reassessImp" min="1" max="5" class="form-control" style="cursor: pointer;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+            <span>1 (Very Low)</span>
+            <span>2 (Low)</span>
+            <span>3 (Medium)</span>
+            <span>4 (High)</span>
+            <span>5 (Very High)</span>
+          </div>
+        </div>
+
+        <!-- Live Calculation Box -->
+        <div class="live-calc-box" style="margin-bottom: 1.25rem;">
+          <div class="calc-formula">
+            <span id="reassessProbText">Probability: 3</span>
+            <span>×</span>
+            <span id="reassessImpText">Impact: 3</span>
+          </div>
+          <div class="calc-result-badge">
+            <span class="calc-score-display" id="reassessScoreVal">9</span>
+            <span class="badge badge-risk-medium" id="reassessLevelBadge">Medium</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reassessNotes">Audit / Milestone Reassessment Note</label>
+          <textarea id="reassessNotes" class="form-control" rows="2" placeholder="e.g. Deployed automated failover and security patch reducing probability from 4 to 2."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="ModalManager.close('reassessModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Reassessment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let matrixDataCache = null;
+  let selectedCellCoord = null; // { impact: 5, probability: 5 }
+
+  const IMPACT_LABEL_MAP = {
+    5: '5 - Very High',
+    4: '4 - High',
+    3: '3 - Medium',
+    2: '2 - Low',
+    1: '1 - Very Low'
+  };
+
+  const PROB_LABEL_MAP = {
+    1: '1 - Very Low',
+    2: '2 - Low',
+    3: '3 - Medium',
+    4: '4 - High',
+    5: '5 - Very High'
+  };
+
+  function loadMatrixGrid(retainSelection = true) {
+    const gridContainer = document.getElementById('matrixGridContainer');
+    const selectedCat = document.getElementById('matrixCategoryFilter').value;
+
+    fetch('/api/matrix-data')
+      .then(res => res.json())
+      .then(data => {
+        matrixDataCache = data;
+        renderMatrix(data, selectedCat, retainSelection);
+      })
+      .catch(err => {
+        gridContainer.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; color: var(--risk-critical); padding: 3rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+            <p style="margin-top: 0.75rem; font-weight: 600;">Failed to load risk matrix data from database.</p>
+          </div>
+        `;
+      });
+  }
+
+  function renderMatrix(data, categoryFilter, retainSelection = true) {
+    const gridContainer = document.getElementById('matrixGridContainer');
+    gridContainer.innerHTML = '';
+
+    let candidateCellToSelect = null;
+    let fallbackFirstCell = null;
+
+    data.matrix_rows.forEach(row => {
+      row.cells.forEach(cell => {
+        // Filter risks by category if user selected one
+        let filteredRisks = cell.risks;
+        if (categoryFilter) {
+          filteredRisks = cell.risks.filter(r => r.category_id == categoryFilter);
+        }
+
+        const count = filteredRisks.length;
+        const cellEl = document.createElement('div');
+        const levelLower = cell.level.toLowerCase();
+        cellEl.className = `matrix-cell cell-${levelLower}`;
+        cellEl.dataset.impact = cell.impact;
+        cellEl.dataset.probability = cell.probability;
+        cellEl.setAttribute('role', 'button');
+        cellEl.setAttribute('tabindex', '0');
+        cellEl.setAttribute('aria-label', `Impact ${cell.impact}, Probability ${cell.probability}, Score ${cell.score}, Severity ${cell.level}, ${count} risks`);
+
+        // Check if this cell is currently selected
+        const isSelected = selectedCellCoord && selectedCellCoord.impact === cell.impact && selectedCellCoord.probability === cell.probability;
+        if (isSelected) {
+          cellEl.classList.add('selected');
+          candidateCellToSelect = { cell, filteredRisks };
+        }
+
+        if (!fallbackFirstCell && count > 0) {
+          fallbackFirstCell = { cell, filteredRisks };
+        }
+
+        // Cell Text: Score, Severity, Risk Count
+        const countText = count > 0 ? `${count} ${count === 1 ? 'Risk' : 'Risks'}` : 'No risks';
+        const countClass = count > 0 ? 'has-risks' : 'empty-count';
+
+        cellEl.innerHTML = `
+          <div class="cell-top-row">
+            <span class="cell-score-num">${cell.score}</span>
+            <span class="cell-sev-label">${cell.level}</span>
+          </div>
+          <div>
+            <span class="cell-count-pill ${countClass}">
+              <i class="fa-solid ${count > 0 ? 'fa-triangle-exclamation' : 'fa-circle-check'}" style="font-size: 0.65rem;"></i>
+              <span>${countText}</span>
+            </span>
+          </div>
+        `;
+
+        const onSelect = () => {
+          document.querySelectorAll('.matrix-cell.selected').forEach(el => el.classList.remove('selected'));
+          cellEl.classList.add('selected');
+          selectedCellCoord = { impact: cell.impact, probability: cell.probability };
+          updateInspector(cell.impact, cell.probability, cell.score, cell.level, filteredRisks);
+        };
+
+        cellEl.addEventListener('click', onSelect);
+        cellEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect();
+          }
+        });
+
+        gridContainer.appendChild(cellEl);
+      });
+    });
+
+    // Auto-select cell: If retained selection exists, use it; otherwise select the first cell with risks or top-left (5, 5)
+    if (retainSelection && candidateCellToSelect) {
+      updateInspector(candidateCellToSelect.cell.impact, candidateCellToSelect.cell.probability, candidateCellToSelect.cell.score, candidateCellToSelect.cell.level, candidateCellToSelect.filteredRisks);
+    } else if (fallbackFirstCell) {
+      selectedCellCoord = { impact: fallbackFirstCell.cell.impact, probability: fallbackFirstCell.cell.probability };
+      const el = document.querySelector(`.matrix-cell[data-impact="${fallbackFirstCell.cell.impact}"][data-probability="${fallbackFirstCell.cell.probability}"]`);
+      if (el) el.classList.add('selected');
+      updateInspector(fallbackFirstCell.cell.impact, fallbackFirstCell.cell.probability, fallbackFirstCell.cell.score, fallbackFirstCell.cell.level, fallbackFirstCell.filteredRisks);
+    } else {
+      // Default to Impact 5, Prob 5
+      const topCell = data.matrix_rows[0].cells[4]; // Impact 5, Prob 5
+      selectedCellCoord = { impact: 5, probability: 5 };
+      const el = document.querySelector('.matrix-cell[data-impact="5"][data-probability="5"]');
+      if (el) el.classList.add('selected');
+      const filtered = categoryFilter ? topCell.risks.filter(r => r.category_id == categoryFilter) : topCell.risks;
+      updateInspector(5, 5, 25, 'Critical', filtered);
+    }
+
+    const totalRisksCount = data.total_risks || 0;
+    const summaryBadge = document.getElementById('matrixSummaryBadge');
+    if (summaryBadge) {
+      summaryBadge.innerHTML = `<strong>${totalRisksCount}</strong> total risks plotted in matrix`;
+    }
+  }
+
+  function updateInspector(impact, prob, score, level, risks) {
+    const coordBadge = document.getElementById('inspectorCoordBadge');
+    const scoreVal = document.getElementById('inspectorScoreVal');
+    const probVal = document.getElementById('inspectorProbVal');
+    const impVal = document.getElementById('inspectorImpVal');
+    const sevBadge = document.getElementById('inspectorSevBadge');
+    const countVal = document.getElementById('inspectorCountVal');
+    const listEl = document.getElementById('inspectorRisksList');
+    const regLink = document.getElementById('inspectorRegisterLink');
+
+    coordBadge.innerText = `Impact ${impact} × Prob ${prob}`;
+    scoreVal.innerText = score;
+    
+    // Score color matching level
+    if (level === 'Critical') scoreVal.style.color = 'var(--risk-critical)';
+    else if (level === 'High') scoreVal.style.color = 'var(--risk-high)';
+    else if (level === 'Medium') scoreVal.style.color = 'var(--risk-medium)';
+    else scoreVal.style.color = 'var(--risk-low)';
+
+    probVal.innerText = PROB_LABEL_MAP[prob] || `${prob}`;
+    impVal.innerText = IMPACT_LABEL_MAP[impact] || `${impact}`;
+    
+    sevBadge.innerText = level;
+    sevBadge.className = `badge badge-risk-${level.toLowerCase()}`;
+    
+    const count = risks.length;
+    countVal.innerText = `${count} ${count === 1 ? 'Risk' : 'Risks'}`;
+
+    if (regLink) {
+      regLink.href = `/risks?probability=${prob}&impact=${impact}`;
+      regLink.innerHTML = `<i class="fa-solid fa-filter"></i> <span>View ${count} in Risk Register</span>`;
+    }
+
+    if (count === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state" style="padding: 2.5rem 1rem;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; color: var(--text-muted);">
+            <i class="fa-solid fa-shield-check" style="font-size: 1.6rem; color: var(--risk-low);"></i>
+          </div>
+          <div class="empty-state-title" style="font-size: 1.05rem; margin-bottom: 0.35rem;">No Risks In This Cell</div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 320px; margin: 0 auto 1.25rem;">
+            No software risks are currently plotted with Impact ${impact} (${IMPACT_LABEL_MAP[impact]}) and Probability ${prob} (${PROB_LABEL_MAP[prob]}).
+          </p>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openMatrixAddRiskModal(${prob}, ${impact})">
+            <i class="fa-solid fa-plus"></i>
+            <span>Register Risk at this Coordinate</span>
+          </button>
+        </div>
+      `;
+    } else {
+      let html = '';
+      risks.forEach(r => {
+        const initScore = r.initial_score || (r.initial_probability * r.initial_impact) || r.risk_score;
+        const currentScore = r.risk_score;
+        const reductionPct = r.reduction_pct !== undefined ? r.reduction_pct : (initScore > 0 ? Math.round(((initScore - currentScore) / initScore) * 100) : 0);
+        const residualScore = r.residual_score || currentScore;
+        const residualLevel = r.residual_level || r.risk_level;
+
+        html += `
+          <div class="inspector-risk-card">
+            <div class="risk-card-top">
+              <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <span class="risk-id-tag">${r.id}</span>
+                <span class="badge badge-status-${r.status.toLowerCase().replace(/\\s+/g, '')}">${r.status}</span>
+                <span class="badge" style="background: ${r.category_color || '#6366f1'}1f; color: ${r.category_color || '#6366f1'}; border: 1px solid ${r.category_color || '#6366f1'}33;">
+                  <i class="fa-solid ${r.category_icon || 'fa-folder'}"></i> ${r.category_name || 'General'}
+                </span>
+              </div>
+              <span class="badge badge-risk-${r.risk_level.toLowerCase()}">Score ${r.risk_score}</span>
+            </div>
+
+            <h4 class="risk-card-title">${r.name}</h4>
+
+            <div class="risk-card-meta">
+              <span><i class="fa-solid fa-user" style="margin-right: 4px;"></i> Owner: <strong data-person="${r.owner}">${r.owner}</strong></span>
+              <span><i class="fa-solid fa-building" style="margin-right: 4px;"></i> ${r.department || 'Engineering'}</span>
+            </div>
+
+            <!-- Residual Risk & Reduction Metrics -->
+            <div class="risk-card-metrics">
+              <div style="flex: 1;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Current Exposure</div>
+                <div style="font-family: var(--font-mono); font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                  Score: ${currentScore} <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">(${r.risk_level})</span>
+                </div>
+              </div>
+              <div style="width: 1px; height: 26px; background: var(--border-subtle);"></div>
+              <div style="flex: 1.2;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Residual Risk</div>
+                <div style="font-size: 0.82rem; font-weight: 600; color: ${reductionPct > 0 ? 'var(--risk-low)' : 'var(--text-secondary)'};">
+                  ${reductionPct > 0 ? `<i class="fa-solid fa-arrow-trend-down"></i> ${residualScore} (${reductionPct}% reduction)` : `Score ${residualScore} (${residualLevel})`}
+                </div>
+              </div>
+            </div>
+
+            <div class="risk-card-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="openReassessModal('${r.id}', '${r.name.replace(/'/g, "\\\\'")}', ${r.probability}, ${r.impact})" title="Reassess Probability & Impact">
+                <i class="fa-solid fa-arrows-to-dot"></i>
+                <span>Reassess</span>
+              </button>
+              <a href="/risks/${r.id}" class="btn btn-outline btn-sm">
+                <span>Details</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </a>
+            </div>
+          </div>
+        `;
+      });
+      listEl.innerHTML = html;
+    }
+  }
+
+  function clearMatrixFilter() {
+    selectedCellCoord = null;
+    document.getElementById('matrixCategoryFilter').value = '';
+    loadMatrixGrid(false);
+    Toast.show('Matrix Filter', 'Cleared coordinate filter. Displaying all risks.', 'info', 2000);
+  }
+
+  function openMatrixAddRiskModal(prob = 3, imp = 3) {
+    const pInput = document.getElementById('newRiskProb');
+    const iInput = document.getElementById('newRiskImp');
+    if (pInput) pInput.value = prob;
+    if (iInput) iInput.value = imp;
+    
+    // Trigger live calc update in global modal
+    if (pInput) pInput.dispatchEvent(new Event('input'));
+    ModalManager.open('globalAddRiskModal');
+  }
+
+  function openReassessModal(riskId, riskName, prob, imp) {
+    document.getElementById('reassessRiskId').value = riskId;
+    document.getElementById('reassessRiskTitle').innerText = riskName;
+    document.getElementById('reassessRiskIdBadge').innerText = riskId;
+
+    const p = document.getElementById('reassessProb');
+    const i = document.getElementById('reassessImp');
+    p.value = prob;
+    i.value = imp;
+
+    updateReassessCalc();
+    ModalManager.open('reassessModal');
+  }
+
+  function updateReassessCalc() {
+    const p = parseInt(document.getElementById('reassessProb').value, 10);
+    const i = parseInt(document.getElementById('reassessImp').value, 10);
+    const score = p * i;
+    document.getElementById('reassessProbText').innerText = `Probability: ${p}`;
+    document.getElementById('reassessImpText').innerText = `Impact: ${i}`;
+    document.getElementById('reassessScoreVal').innerText = score;
+
+    const badge = document.getElementById('reassessLevelBadge');
+    let level = 'Low';
+    let badgeClass = 'badge-risk-low';
+    if (score >= 17) { level = 'Critical'; badgeClass = 'badge-risk-critical'; }
+    else if (score >= 10) { level = 'High'; badgeClass = 'badge-risk-high'; }
+    else if (score >= 5) { level = 'Medium'; badgeClass = 'badge-risk-medium'; }
+
+    badge.innerText = level;
+    badge.className = `badge ${badgeClass}`;
+  }
+
+  document.getElementById('reassessProb').addEventListener('input', updateReassessCalc);
+  document.getElementById('reassessImp').addEventListener('input', updateReassessCalc);
+
+  function handleReassessSubmit(e) {
+    e.preventDefault();
+    const riskId = document.getElementById('reassessRiskId').value;
+    const prob = parseInt(document.getElementById('reassessProb').value, 10);
+    const imp = parseInt(document.getElementById('reassessImp').value, 10);
+    const notes = document.getElementById('reassessNotes').value.trim();
+
+    fetch(`/api/risks/${riskId}/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        probability: prob,
+        impact: imp,
+        notes: notes || 'Risk milestone reassessed via 5×5 Interactive Matrix'
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Toast.show('Success', `Risk ${riskId} reassessed to score ${data.risk_score} (${data.risk_level})`, 'success');
+        ModalManager.close('reassessModal');
+        // Keep current coordinates selected so user sees the newly moved risk
+        selectedCellCoord = { impact: imp, probability: prob };
+        loadMatrixGrid(true);
+      } else {
+        Toast.show('Error', data.error || 'Failed to update score', 'error');
+      }
+    })
+    .catch(err => Toast.show('Error', 'Network error during reassessment', 'error'));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadMatrixGrid();
+  });
+</script>
+{% endblock %}

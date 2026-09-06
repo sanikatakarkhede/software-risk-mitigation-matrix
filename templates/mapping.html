@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mapping-container" style="padding-bottom: 3rem;">
+  <!-- Header Banner -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; border-radius: 9999px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.5rem;">
+        <i class="fa-solid fa-diagram-project"></i>
+        <span>End-to-End Governance Traceability</span>
+      </div>
+      <h1 style="font-size: 1.85rem; font-family: var(--font-heading); margin-bottom: 0.35rem; color: var(--text-primary);" data-i18n="nav_mapping">Risk ↔ Mitigation Mapping</h1>
+      <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Trace identified threats directly to mitigation treatments, owners, progress and residual risk reduction.</p>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{{ url_for('assessment_view') }}" class="btn btn-primary btn-md">
+        <i class="fa-solid fa-plus"></i>
+        <span data-i18n="btn_assess_new_threat">Assess New Threat</span>
+      </a>
+      <a href="{{ url_for('mitigation_view') }}" class="btn btn-secondary btn-md">
+        <i class="fa-solid fa-list-check"></i>
+        <span data-i18n="nav_mitigation">Manage Action Plans</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary KPI Bar -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+    <div class="card" style="padding: 1.15rem;">
+      <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Mapped Threats</div>
+      <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin-top: 0.25rem;">
+        {{ mappings | length }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Covered by governance plans</div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem;">
+      <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Points Mitigated</div>
+      <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: #10b981; margin-top: 0.25rem;">
+        -{{ portfolio.points_mitigated | default(108) }} pts
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Score reduction across catalog</div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem;">
+      <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">
+        <span data-i18n="lbl_overall_reduction">Overall Reduction</span>
+        <span class="help-icon" tabindex="0">?<span class="tooltip-text" data-i18n="tooltip_risk_reduction">Shows how much the risk has decreased after mitigation.</span></span>
+      </div>
+      <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--primary); margin-top: 0.25rem;">
+        {{ portfolio.overall_reduction_pct | default(57.4) }}%
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Unified database formula</div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem;">
+      <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Attention Required</div>
+      <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: #f97316; margin-top: 0.25rem;">
+        {{ portfolio.attention_count | default(2) }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Critical & High residual items</div>
+    </div>
+  </div>
+
+  <!-- Filters and Search Bar -->
+  <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem; align-items: center;">
+      <div style="position: relative;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+        <input type="text" id="mappingSearch" class="form-control" placeholder="Search threats, mitigation strategies, owners..." data-i18n-placeholder="search_placeholder" style="padding-left: 2.35rem;" oninput="filterMappingRows()">
+      </div>
+
+      <div>
+        <select id="mappingCategoryFilter" class="form-control" onchange="filterMappingRows()">
+          <option value="">All Risk Categories</option>
+          {% for c in categories %}
+            <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <select id="mappingStatusFilter" class="form-control" onchange="filterMappingRows()">
+          <option value="">All Lifecycle Statuses</option>
+          <option value="Identified">Identified</option>
+          <option value="Assessed">Assessed</option>
+          <option value="Mitigation Planned">Mitigation Planned</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Under Review">Under Review</option>
+          <option value="Reduced">Reduced / Mitigated</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+
+      <div style="text-align: right;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetMappingFilters()">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span data-i18n="btn_reset_filters">Reset Filters</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Traceability Table / Matrix -->
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-responsive">
+      <table class="table" id="mappingTable" style="width: 100%; margin: 0;">
+        <thead>
+          <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-color);">
+            <th style="padding: 1rem 1.25rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);" data-i18n="lbl_risk_desc">Risk & Domain</th>
+            <th style="padding: 1rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);" data-i18n="lbl_score_history">Score Progression</th>
+            <th style="padding: 1rem 1.25rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);" data-i18n="lbl_mitigation_strategy">Mitigation Treatment Strategy</th>
+            <th style="padding: 1rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);" data-i18n="lbl_owner">Assigned Owner</th>
+            <th style="padding: 1rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);" data-i18n="lbl_progress">Progress</th>
+            <th style="padding: 1rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); text-align: right;" data-i18n="lbl_reduction">Reduction %</th>
+            <th style="padding: 1rem 1.25rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); text-align: center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="mappingTableBody">
+          {% for item in mappings %}
+          <tr class="mapping-row" data-category="{{ item.category_name }}" data-status="{{ item.risk_status }}" data-search="{{ item.risk_id }} {{ item.risk_name }} {{ item.strategy_name | default('') }} {{ item.risk_owner }} {{ item.mitigation_owner | default('') }}">
+            <!-- Risk & Domain -->
+            <td style="padding: 1rem 1.25rem; vertical-align: top; max-width: 260px;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                <a href="{{ url_for('risk_details', risk_id=item.risk_id) }}" style="font-weight: 700; color: var(--primary); font-size: 0.85rem;">
+                  {{ item.risk_id }}
+                </a>
+                <span class="badge badge-{{ item.risk_level.lower() }}" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;">
+                  {{ item.risk_level }}
+                </span>
+                <span class="lifecycle-badge status-{{ item.risk_status.lower().replace(' ', '') }}" style="font-size: 0.68rem;">
+                  {{ item.risk_status }}
+                </span>
+                {% if item.is_demo %}
+                  <span class="badge badge-demo" data-i18n="lbl_demo_data" style="font-size: 0.65rem;">Demo Data</span>
+                {% else %}
+                  <span class="badge badge-user-analysis" data-i18n="lbl_user_data" style="font-size: 0.65rem;">User Analysis</span>
+                {% endif %}
+              </div>
+              <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary); line-height: 1.3; margin-bottom: 0.35rem;">
+                {{ item.risk_name }}
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted);">
+                <i class="fa-solid {{ item.category_icon | default('fa-folder') }}" style="color: {{ item.category_color | default('var(--primary)') }}; font-size: 0.7rem;"></i>
+                <span>{{ item.category_name }}</span>
+              </div>
+            </td>
+
+            <!-- Score Progression -->
+            <td style="padding: 1rem; vertical-align: top; white-space: nowrap;">
+              <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                <span style="color: var(--text-muted); text-decoration: line-through; font-weight: 600;">{{ item.initial_score | default(item.risk_score) }}</span>
+                <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem; color: var(--text-muted);"></i>
+                <span style="font-weight: 800; font-size: 0.95rem; color: {% if item.risk_score >= 17 %}#ef4444{% elif item.risk_score >= 10 %}#f97316{% elif item.risk_score >= 5 %}#f59e0b{% else %}#10b981{% endif %};">
+                  {{ item.risk_score }}
+                </span>
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">
+                Score Points: -{{ item.points_mitigated | default(0) }}
+              </div>
+            </td>
+
+            <!-- Mitigation Treatment Strategy -->
+            <td style="padding: 1rem 1.25rem; vertical-align: top; max-width: 320px;">
+              {% if item.strategy_name %}
+                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.25rem;">
+                  {{ item.strategy_name }}
+                </div>
+                {% if item.action_steps %}
+                  <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.3; max-height: 42px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                    {{ item.action_steps }}
+                  </div>
+                {% endif %}
+                {% if item.target_date %}
+                  <div style="font-size: 0.7rem; color: #818cf8; margin-top: 0.25rem;">
+                    <i class="fa-regular fa-calendar" style="font-size: 0.68rem;"></i> Target: {{ item.target_date }}
+                  </div>
+                {% endif %}
+              {% else %}
+                <div style="font-style: italic; color: var(--text-muted); font-size: 0.8rem;">
+                  No specific mitigation action plan linked yet.
+                </div>
+                <a href="{{ url_for('mitigation_view') }}" class="btn btn-secondary btn-sm" style="margin-top: 0.35rem; padding: 0.2rem 0.5rem; font-size: 0.72rem;">
+                  + Add Mitigation Plan
+                </a>
+              {% endif %}
+            </td>
+
+            <!-- Assigned Owner -->
+            <td style="padding: 1rem; vertical-align: top;">
+              <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);" data-person="{{ item.risk_owner }}">{{ item.risk_owner }}</div>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">{{ item.department }}</div>
+              {% if item.mitigation_owner and item.mitigation_owner != item.risk_owner %}
+                <div style="font-size: 0.7rem; color: var(--primary); margin-top: 0.2rem;">
+                  Mit: <span data-person="{{ item.mitigation_owner }}">{{ item.mitigation_owner }}</span>
+                </div>
+              {% endif %}
+            </td>
+
+            <!-- Progress Bar -->
+            <td style="padding: 1rem; vertical-align: top; min-width: 140px;">
+              {% set prog = item.progress_pct | default(0) %}
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem;">
+                <span style="color: {% if prog == 100 %}#10b981{% elif prog > 50 %}#818cf8{% else %}var(--warning){% endif %};">
+                  {{ prog }}%
+                </span>
+                <span style="color: var(--text-muted); font-size: 0.7rem;">
+                  {{ item.mitigation_status | default('Planned') }}
+                </span>
+              </div>
+              <div style="height: 6px; border-radius: 9999px; background: var(--bg-secondary); overflow: hidden; border: 1px solid var(--border-color);">
+                <div style="height: 100%; width: {{ prog }}%; background: {% if prog == 100 %}#10b981{% elif prog > 50 %}var(--primary){% else %}var(--warning){% endif %}; border-radius: 9999px;"></div>
+              </div>
+            </td>
+
+            <!-- Risk Reduction % -->
+            <td style="padding: 1rem; vertical-align: top; text-align: right;">
+              <span class="badge" style="background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.3); font-size: 0.82rem; font-weight: 700; padding: 0.25rem 0.55rem;">
+                -{{ item.reduction_pct | default(0) }}%
+              </span>
+            </td>
+
+            <!-- Action Jump -->
+            <td style="padding: 1rem 1.25rem; vertical-align: top; text-align: center;">
+              <div style="display: flex; justify-content: center; gap: 0.35rem;">
+                <a href="{{ url_for('risk_details', risk_id=item.risk_id) }}" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.5rem;" title="View Complete Risk Profile & History">
+                  <i class="fa-solid fa-eye" style="font-size: 0.75rem;"></i>
+                </a>
+                <a href="{{ url_for('mitigation_view') }}" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.5rem;" title="Edit Mitigation Strategy">
+                  <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function filterMappingRows() {
+  const searchTerm = (document.getElementById('mappingSearch').value || '').toLowerCase().trim();
+  const categoryFilter = document.getElementById('mappingCategoryFilter').value;
+  const statusFilter = document.getElementById('mappingStatusFilter').value;
+
+  const rows = document.querySelectorAll('.mapping-row');
+  rows.forEach(row => {
+    const rowSearch = (row.getAttribute('data-search') || '').toLowerCase();
+    const rowCategory = row.getAttribute('data-category') || '';
+    const rowStatus = row.getAttribute('data-status') || '';
+
+    const matchesSearch = !searchTerm || rowSearch.includes(searchTerm);
+    const matchesCategory = !categoryFilter || rowCategory === categoryFilter;
+    const matchesStatus = !statusFilter || rowStatus.toLowerCase().includes(statusFilter.toLowerCase());
+
+    if (matchesSearch && matchesCategory && matchesStatus) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function resetMappingFilters() {
+  document.getElementById('mappingSearch').value = '';
+  document.getElementById('mappingCategoryFilter').value = '';
+  document.getElementById('mappingStatusFilter').value = '';
+  filterMappingRows();
+}
+</script>
+{% endblock %}
